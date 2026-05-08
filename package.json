@@ -1,0 +1,73 @@
+{
+  "type": "module",
+  "name": "@avclabs.ai/media-mcp",
+  "version": "0.3.3",
+  "description": "MCP Server for video enhancement and image segmentation (SAM3)",
+  "mcpName": "io.github.avclabs/media-mcp",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "bin": {
+    "media-mcp": "dist/server.js"
+  },
+  "files": [
+    "dist",
+    "config.json",
+    "LICENSE",
+    "README.md",
+    "README_EN.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "video",
+    "enhancement",
+    "http",
+    "client",
+    "server",
+    "claude",
+    "anthropic"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/avclabs/media-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/avclabs/media-mcp/issues"
+  },
+  "homepage": "https://github.com/avclabs/media-mcp#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "axios": "^1.7.0",
+    "form-data": "^4.0.5",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  },
+  "mcpServer": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@avclabs.ai/media-mcp@latest"
+    ],
+    "env": {
+      "API_KEY": "your-api-key",
+      "HTTP_API_BASE_URL": "https://mcp.avc.ai/enhance",
+      "SAM3_API_BASE_URL": "https://mcp.avc.ai/sam"
+    },
+    "description": "视频增强 + SAM3 图像分割 MCP 服务",
+    "setup": "需要替换 env.API_KEY 为你的 API Key"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
