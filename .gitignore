@@ -9,6 +9,9 @@ dist/
 coverage/
 *.tgz
 .mcpregister_github_token
+.mcpregistry_*
+MCP_REGISTRY_PUBLISH_GUIDE.md
+mcp-publisher.exe
 test
 task_plan/
 scripts/
