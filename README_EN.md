@@ -153,6 +153,8 @@ The agent will automatically call the appropriate tools.
 
 Create an asynchronous video enhancement task.
 
+> **Recommended for most use cases.** Ideal for longer videos (over 10 seconds) to avoid blocking the connection for an extended period.
+
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `video_source` | string | Yes | - | Video URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
@@ -190,6 +192,8 @@ Query task status.
 ### enhance_video_sync
 
 Synchronously enhance video (blocks until completion).
+
+> **Best for short videos (under 10 seconds).** Long videos may cause timeouts or keep the client connection occupied.
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
