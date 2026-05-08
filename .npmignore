@@ -10,3 +10,4 @@ node_modules/
 *.ts
 !dist/*.d.ts
 task_plan/
+scripts/

@@ -11,3 +11,4 @@ coverage/
 .mcpregister_github_token
 test
 task_plan/
+scripts/
