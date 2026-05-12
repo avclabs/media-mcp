@@ -21,7 +21,7 @@ const EnhanceVideoSyncSchema = z.object({
   type: z.enum(['url', 'local']).default('url').describe('上传类型：url=网络视频，local=本地文件'),
   resolution: z.enum(['480p', '540p', '720p', '1080p', '2k']).default('720p').describe('目标分辨率，默认720p'),
   poll_interval: z.number().default(5).describe('轮询间隔（秒），默认5'),
-  timeout: z.number().default(600).describe('超时时间（秒），默认600'),
+  timeout: z.number().default(50).describe('同步等待的超时时间（秒），默认50。超过后工具会主动返回 task_id，请使用 get_task_status 继续查询'),
 });
 
 export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, apiKey: string): void {
@@ -46,7 +46,9 @@ export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, a
 参数说明：
 - video_source: 视频 URL 或本地文件路径
 - type: "url" 或 "local"
-- resolution: 目标分辨率`,
+- resolution: 目标分辨率
+
+创建任务后会立即返回 task_id。你需要使用 get_task_status 工具轮询查询任务结果，直到 status 变为 "completed" 或 "failed"。`,
     CreateTaskSchema.shape,
     async (args) => {
       try {
@@ -66,7 +68,7 @@ export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, a
   // get_task_status tool
   server.tool(
     'get_task_status',
-    '查询视频增强任务状态',
+    '查询视频增强任务状态。返回值中的 status 字段可能为：processing（处理中）、completed（已完成）、failed（失败）。如果 status 为 processing，你需要等待几秒后再次调用此工具轮询。',
     GetTaskStatusSchema.shape,
     async (args) => {
       try {
@@ -97,7 +99,9 @@ export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, a
 - type: "url" 或 "local"
 - resolution: 目标分辨率
 - poll_interval: 轮询间隔（秒）
-- timeout: 超时时间（秒）`,
+- timeout: 同步等待的超时时间（秒），默认50
+
+此工具仅适合短视频（预计处理时间 < 1 分钟）。如果任务在 50 秒内未完成，工具会提前返回并包含 task_id，你需要使用 get_task_status 继续查询。`,
     EnhanceVideoSyncSchema.shape,
     async (args) => {
       try {
@@ -241,6 +245,7 @@ async function getTaskStatus(client: AxiosInstance, taskId: string): Promise<any
     error_message: result.error_message,
     created_at: result.created_at,
     updated_at: result.updated_at,
+    message: result.status === 'processing' ? '任务仍在处理中，请稍后再查询' : undefined,
   };
 }
 
@@ -269,7 +274,13 @@ async function enhanceVideoSync(
     }
     const elapsed = (Date.now() - startTime) / 1000;
     if (elapsed >= timeout) {
-      return { success: false, error: `任务超时: ${taskId}`, task_id: taskId };
+      return {
+        success: true,
+        status: 'processing',
+        task_id: taskId,
+        message: `任务仍在处理中（已等待 ${timeout} 秒）。请使用 get_task_status 工具继续查询此任务状态。`,
+        note: '此工具对长任务的同步等待已被截断，请切换到 get_task_status 轮询模式。',
+      };
     }
     await sleep(pollInterval * 1000);
   }

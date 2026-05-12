@@ -11,15 +11,19 @@
 ## 功能
 
 提供以下 MCP Tools：
+
+**视频增强**
 - `create_task` - 创建视频增强任务（支持 URL 或本地文件上传）
 - `get_task_status` - 查询任务状态
-- `enhance_video_sync` - 同步增强视频（阻塞等待完成）
+- `enhance_video_sync` - 同步增强视频（阻塞等待，默认50秒截断）
+
+**图像分割 (SAM3)**
 - `sam3_predict` - SAM3 图像分割（支持本地路径、URL 或 Base64 图片）
 
 ## 前置要求
 
-- **Node.js >= 18**（检查：`node --version`）
-- **API Key**（用于身份认证，请联系服务提供方获取）
+- **Node.js >= 18** （检查：`node --version`）
+- **API Key** （用于身份认证，请联系服务提供方获取）
 
 ## 懒人安装（推荐）
 
@@ -81,7 +85,7 @@ AI 会自动完成：
 - **Type**：`command`
 - **Command**：
   ```bash
-  env HTTP_API_KEY=your-api-key npx -y @avclabs.ai/media-mcp@latest
+  env API_KEY=your-api-key npx -y @avclabs.ai/media-mcp@latest
   ```
 
 或编辑 `~/.cursor/mcp.json`：
@@ -114,8 +118,8 @@ AI 会自动完成：
 | `API_KEY` | **是** | - | API 认证密钥（视频增强和 SAM3 共用） |
 | `HTTP_API_BASE_URL` | 否 | `https://mcp.avc.ai/enhance` | 视频增强服务接口地址 |
 | `SAM3_API_BASE_URL` | 否 | `https://mcp.avc.ai/sam` | SAM3 服务接口地址 |
-| `SAM3_POLL_INTERVAL` | 否 | `2000` | 轮询间隔（毫秒） |
-| `SAM3_POLL_MAX_ATTEMPTS` | 否 | `60` | 最大轮询次数 |
+| `SAM3_POLL_INTERVAL` | 否 | `2000` | SAM3 轮询间隔（毫秒） |
+| `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | SAM3 最大轮询次数 |
 
 ### 自定义服务地址
 
@@ -124,15 +128,44 @@ AI 会自动完成：
   "env": {
     "HTTP_API_BASE_URL": "https://your-endpoint.com",
     "API_KEY": "your-api-key",
-    "SAM3_API_BASE_URL": "http://localhost:8001"
+    "SAM3_API_BASE_URL": "https://your-sam3-endpoint.com"
   }
 }
 ```
 
 或通过命令行参数：
 ```bash
-npx -y @avclabs.ai/media-mcp@latest --base-url https://your-endpoint.com --api-key your-api-key --sam3-base-url http://localhost:8001
+npx -y @avclabs.ai/media-mcp@latest --base-url https://your-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
+
+## 推荐的工作流程
+
+本项目提供了**同步**和**异步**两种模式。
+
+**由于 MCP Agent 对单个 tool 调用通常有约 60 秒的超时限制**，处理时间较长的任务（视频增强）强烈建议使用**异步模式**：
+
+### 异步模式（推荐）
+
+**视频增强**：
+1. 调用 `create_task` 创建任务 → 立即获得 `task_id`
+2. 等待几秒后，调用 `get_task_status` 查询状态
+3. 如果 `status` 为 `processing`，继续等待并重复步骤 2
+4. 如果 `status` 为 `completed`，任务完成，结果中包含 `video_url`
+5. 如果 `status` 为 `failed`，任务失败，结果中包含 `error_message`
+
+### 同步模式（简单场景）
+
+**视频增强**：
+- 调用 `enhance_video_sync` → 服务器内部自动轮询
+- 默认最多等待50秒
+- 如果50秒内完成，直接返回结果
+- 如果50秒未完成，返回 `task_id` 和提示，让 Agent 切换到 `get_task_status` 继续查询
+
+**图像分割 (SAM3)**：
+- 调用 `sam3_predict` → 服务器内部自动轮询
+- 默认最多等待50秒（25次 × 2秒轮询间隔）
+- 如果50秒内完成，直接返回分割结果
+- 如果50秒未完成，返回截断提示，告知任务仍在处理中
 
 ## 使用示例
 
@@ -142,19 +175,21 @@ npx -y @avclabs.ai/media-mcp@latest --base-url https://your-endpoint.com --api-k
 
 > "把我桌面的 video.mp4 提升到 2k 画质"
 
-AI 会自动调用相应工具完成任务。
+> "帮我分析这张图片，找出里面的所有物体：C:\\Users\\xxx\\photo.png"
 
-> "帮我分析一下这张图片，找出里面的所有物体：C:\\Users\\xxx\\photo.png"
->
 > "用 SAM3 分割这张图片，prompt 是 'find all cars'"
+
+AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 
 ## 提供的 Tools
 
-### create_task
+### 视频增强
+
+#### create_task
 
 创建视频增强任务（异步）。
 
-> **推荐使用**：适用于绝大多数场景，尤其是时长超过 10 秒的视频，可避免长时间阻塞连接。
+> **推荐使用**：适用于绝大多数场景，尤其是时长超过10秒的视频，可避免超时和长时间阻塞连接。
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -167,13 +202,15 @@ AI 会自动调用相应工具完成任务。
 {
   "success": true,
   "task_id": "xxx",
-  "status": "wait"
+  "status": "processing"
 }
 ```
 
-### get_task_status
+#### get_task_status
 
-查询任务状态。
+查询视频增强任务状态。
+
+> 返回值中的 `status` 字段可能为：`processing`（处理中）、`completed`（已完成）、`failed`（失败）。如果 `status` 为 `processing`，你需要等待几秒后再次调用此工具轮询。
 
 | 参数 | 类型 | 必填 |
 |---|---|---|
@@ -186,25 +223,41 @@ AI 会自动调用相应工具完成任务。
   "task_id": "xxx",
   "status": "completed",
   "progress": 100,
-  "video_url": "https://..."
+  "video_url": "https://...",
+  "message": "任务仍在处理中，请稍后再查询"
 }
 ```
 
-### enhance_video_sync
+其中 `message` 字段只在 `status` 为 `processing` 时出现，提示 Agent 继续等待。
+
+#### enhance_video_sync
 
 同步增强视频（阻塞等待完成）。
 
-> **建议仅在视频时长较短（10 秒以内）时使用。** 长视频可能导致超时或长时间占用客户端连接。
+> **仅适合短视频（预计处理时间 < 1 分钟）。** 如果任务在50秒内未完成，工具会提前返回并包含 `task_id`，你需要使用 `get_task_status` 继续查询。
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|
-| `video_source` | string | 是 | - | 视频 URL 或本地文件路径（URL 必须公网可访问，不支持需要登录或签名的链接） |
+| `video_source` | string | 是 | - | 视频 URL 或本地文件路径 |
 | `type` | string | 否 | `url` | `url` 或 `local` |
 | `resolution` | string | 否 | `720p` | 目标分辨率 |
 | `poll_interval` | number | 否 | `5` | 轮询间隔（秒） |
-| `timeout` | number | 否 | `600` | 超时时间（秒） |
+| `timeout` | number | 否 | `50` | 同步等待超时时间（秒），超过后主动返回 |
 
-### sam3_predict
+**截断返回示例（50秒未完成）：**
+```json
+{
+  "success": true,
+  "status": "processing",
+  "task_id": "xxx",
+  "message": "任务仍在处理中（已等待 50 秒）。请使用 get_task_status 工具继续查询此任务状态。",
+  "note": "此工具对长任务的同步等待已被截断，请切换到 get_task_status 轮询模式。"
+}
+```
+
+### 图像分割 (SAM3)
+
+#### sam3_predict
 
 使用 SAM3 分割 API 分析图片，生成推理结果（masks、boxes、scores）。
 
@@ -228,9 +281,9 @@ AI 会自动调用相应工具完成任务。
 
 其他参数：
 
-- `prompt` (string, required): 英文文本提示，用于指定要在图片中分割的目标物体。例如 `"person"`、`"car"`、`"a cat sitting on a sofa"`。由于 SAM3 模型仅接受英文 prompt，建议传入英文描述。如果用户提供中文或其他非英文文本，Agent 会自动翻译为英文后调用。
+- `prompt` (string, required): 英文文本提示，用于指定要在图片中分割的目标物体。由于 SAM3 模型仅接受英文 prompt，建议传入英文描述。如果用户提供中文或其他非英文文本，Agent 会自动翻译为英文后调用。
 
-**返回：**
+**正常完成返回：**
 
 推理完成后，直接返回 JSON 字符串。该 JSON 包含以下三个字段：
 
@@ -256,7 +309,36 @@ AI 会自动调用相应工具完成任务。
 }
 ```
 
+**截断返回示例（50秒未完成）：**
+```json
+{
+  "success": true,
+  "status": "processing",
+  "task_id": "xxx",
+  "message": "Task is still processing (waited about 50 seconds). Please retry later or record this task_id for manual follow-up.",
+  "note": "The synchronous wait for this long-running task has been truncated."
+}
+```
+
 ## 常见问题
+
+### Agent 调用工具时报超时怎么办？
+
+这是本项目重点解决的问题。MCP Agent（如 Claude、Cursor）对单个 tool 调用通常有约 60 秒的超时限制。如果任务处理时间超过此限制，Agent 会报错并切断连接。
+
+**解决方案：**
+
+1. **优先使用异步工具**：对于视频增强等耗时任务，始终使用 `create_task` + `get_task_status`。这些工具每次调用都是瞬间返回的，不会触发超时。
+
+2. **同步工具的截断机制**：`enhance_video_sync` 已在内部设置了50秒的截断限制。如果任务未在50秒内完成，工具会主动返回 `task_id`，并提示 Agent 使用 `get_task_status` 继续跟进。
+
+3. **SAM3 的截断机制**：`sam3_predict` 默认轮询25次（约50秒），如果任务未完成会返回截断提示，告知任务仍在处理中。
+
+4. **调整 SAM3 轮询参数**（高级）：如果你确定 SAM3 任务通常很快（例如10秒内），可以通过环境变量增加轮询次数：
+   ```bash
+   SAM3_POLL_MAX_ATTEMPTS=60
+   ```
+   但请确保总等待时间不超过 Agent 的超时限制。
 
 ### 拖拽附件后提示找不到文件？
 
@@ -320,7 +402,7 @@ API Key 缺失，请检查配置中的 `env.API_KEY`。
 
 ### "TOS 上传失败"
 
-通常是签名不匹配，请确认 `HTTP_API_BASE_URL` 和 `HTTP_API_KEY` 正确且有效。
+通常是签名不匹配，请确认 `HTTP_API_BASE_URL` 和 `API_KEY` 正确且有效。
 
 ## 全局安装（可选）
 

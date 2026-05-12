@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   let sam3BaseUrl = process.env.SAM3_API_BASE_URL || config.sam3BaseUrl;
   let sam3ApiKey = apiKey;
   let sam3PollInterval = parseInt(process.env.SAM3_POLL_INTERVAL || '2000', 10);
-  let sam3PollMaxAttempts = parseInt(process.env.SAM3_POLL_MAX_ATTEMPTS || '60', 10);
+  let sam3PollMaxAttempts = parseInt(process.env.SAM3_POLL_MAX_ATTEMPTS || '25', 10);
 
   // 解析命令行参数
   for (let i = 0; i < args.length; i++) {

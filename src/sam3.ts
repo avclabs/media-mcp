@@ -96,41 +96,16 @@ async function sam3Predict(client: AxiosInstance, fileId: string, prompt: string
   return response.data.task_id;
 }
 
-async function getSam3PredictResult(client: AxiosInstance, taskId: string, pollInterval: number, pollMaxAttempts: number): Promise<any> {
-  for (let attempt = 0; attempt < pollMaxAttempts; attempt++) {
-    const response = await client.get(`/predict/result/${encodeURIComponent(taskId)}`);
-    const data = response.data;
-
-    if (data.status === 'completed') {
-      return data;
-    }
-    if (data.status === 'failed') {
-      throw new Error(`Task failed: ${data.error_message || 'unknown error'}`);
-    }
-    await sleep(pollInterval);
-  }
-  throw new Error('Polling timeout: task did not complete in time');
-}
-
 async function downloadSam3Result(url: string): Promise<any> {
   const response = await axios.get(url);
   return response.data;
 }
 
-async function sam3PredictTool(
-  client: AxiosInstance,
-  pollInterval: number,
-  pollMaxAttempts: number,
-  args: z.infer<typeof Sam3PredictSchema>
-): Promise<string> {
-  const { imagePath, imageUrl, imageBase64, prompt } = args;
+async function prepareImageBuffer(args: { imagePath?: string; imageUrl?: string; imageBase64?: string }): Promise<{ buffer: Buffer; fileName: string }> {
+  const { imagePath, imageUrl, imageBase64 } = args;
 
   if (!imagePath && !imageUrl && !imageBase64) {
     throw new Error('Missing image input: must provide one of imagePath, imageUrl, or imageBase64');
-  }
-
-  if (!prompt) {
-    throw new Error('Missing argument: prompt');
   }
 
   let buffer: Buffer;
@@ -153,7 +128,10 @@ async function sam3PredictTool(
     throw new Error('Missing image input: must provide one of imagePath, imageUrl, or imageBase64');
   }
 
-  // Step 1: Get post signature
+  return { buffer, fileName };
+}
+
+async function sam3CreateTask(client: AxiosInstance, buffer: Buffer, fileName: string, prompt: string): Promise<string> {
   const signatureData = await getSam3PostSignature(client, fileName);
   const { url, origin_policy } = signatureData;
 
@@ -161,26 +139,65 @@ async function sam3PredictTool(
     throw new Error('Missing upload URL in post signature response');
   }
 
-  // Parse key from origin_policy
   const keyObj = JSON.parse(origin_policy).conditions.find((c: any) => 'key' in c);
   const tosKey = keyObj ? keyObj.key : new URL(url).pathname.slice(1);
 
-  // Parse file_id from url path
   const fileId = new URL(url).pathname.split('/').pop();
   if (!fileId) {
     throw new Error('Could not extract file_id from upload URL');
   }
 
-  // Step 2: Upload to TOS
   await uploadImageToTos(url, signatureData, tosKey, buffer, fileName);
-
-  // Step 3: Create predict task
   const taskId = await sam3Predict(client, fileId, prompt);
 
-  // Step 4: Poll for result
+  return taskId;
+}
+
+async function getSam3Result(client: AxiosInstance, taskId: string): Promise<any> {
+  const response = await client.get(`/predict/result/${encodeURIComponent(taskId)}`);
+  return response.data;
+}
+
+async function getSam3PredictResult(client: AxiosInstance, taskId: string, pollInterval: number, pollMaxAttempts: number): Promise<any> {
+  for (let attempt = 0; attempt < pollMaxAttempts; attempt++) {
+    const data = await getSam3Result(client, taskId);
+
+    if (data.status === 'completed') {
+      return data;
+    }
+    if (data.status === 'failed') {
+      throw new Error(`Task failed: ${data.error_message || 'unknown error'}`);
+    }
+    await sleep(pollInterval);
+  }
+  return {
+    success: true,
+    status: 'processing',
+    task_id: taskId,
+    message: `Task is still processing (waited about ${Math.round(pollMaxAttempts * pollInterval / 1000)} seconds). Please retry later or record this task_id for manual follow-up.`,
+    note: 'The synchronous wait for this long-running task has been truncated.',
+  };
+}
+
+async function sam3PredictTool(
+  client: AxiosInstance,
+  pollInterval: number,
+  pollMaxAttempts: number,
+  args: z.infer<typeof Sam3PredictSchema>
+): Promise<string> {
+  if (!args.prompt) {
+    throw new Error('Missing argument: prompt');
+  }
+
+  const { buffer, fileName } = await prepareImageBuffer(args);
+  const taskId = await sam3CreateTask(client, buffer, fileName, args.prompt);
+
   const taskResult = await getSam3PredictResult(client, taskId, pollInterval, pollMaxAttempts);
 
-  // Step 5: Download result JSON and return as string
+  if (taskResult.success === true && taskResult.status === 'processing') {
+    return JSON.stringify(taskResult, null, 2);
+  }
+
   const resultUrl = taskResult.result;
   const resultJson = await downloadSam3Result(resultUrl);
 

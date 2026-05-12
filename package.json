@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@avclabs.ai/media-mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "MCP Server for video enhancement and image segmentation (SAM3)",
   "mcpName": "io.github.avclabs/media-mcp",
   "main": "dist/server.js",
