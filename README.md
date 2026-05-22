@@ -224,7 +224,7 @@ Query video enhancement task status.
   "status": "completed",
   "progress": 100,
   "video_url": "https://...",
-  "message": "任务仍在处理中，请稍后再查询"
+  "message": "Task is still processing, please check again later"
 }
 ```
 
@@ -250,8 +250,8 @@ Synchronously enhance video (blocks until completion).
   "success": true,
   "status": "processing",
   "task_id": "xxx",
-  "message": "任务仍在处理中（已等待 50 秒）。请使用 get_task_status 工具继续查询此任务状态。",
-  "note": "此工具对长任务的同步等待已被截断，请切换到 get_task_status 轮询模式。"
+  "message": "Task is still processing (waited 50 seconds). Please use get_task_status to continue polling.",
+  "note": "The synchronous wait for this long-running task has been truncated. Switch to get_task_status polling."
 }
 ```
 
