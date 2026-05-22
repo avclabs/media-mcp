@@ -1,6 +1,6 @@
 # media-mcp (Node.js)
 
-中文 | [English](https://github.com/avclabs/media-mcp/blob/main/README.md)
+[English](https://github.com/avclabs/media-mcp/blob/main/README.md) | 中文
 
 [![npm version](https://img.shields.io/npm/v/@avclabs.ai/media-mcp)](https://www.npmjs.com/package/@avclabs.ai/media-mcp)
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
