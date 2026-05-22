@@ -14,7 +14,7 @@
     "config.json",
     "LICENSE",
     "README.md",
-    "README_EN.md"
+    "README_CN.md"
   ],
   "scripts": {
     "build": "tsc",

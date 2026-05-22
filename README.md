@@ -1,65 +1,65 @@
 # media-mcp (Node.js)
 
-中文 | [English](https://github.com/avclabs/media-mcp/blob/main/README_EN.md)
+[中文](https://github.com/avclabs/media-mcp/blob/main/README_CN.md) | English
 
 [![npm version](https://img.shields.io/npm/v/@avclabs.ai/media-mcp)](https://www.npmjs.com/package/@avclabs.ai/media-mcp)
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-基于 MCP 协议的视频增强与图像分割服务，作为 MCP Client-Server 与后端 HTTP Server 交互。
+A video enhancement and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with backend HTTP Servers.
 
-## 功能
+## Features
 
-提供以下 MCP Tools：
+Provides the following MCP Tools:
 
-**视频增强**
-- `create_task` - 创建视频增强任务（支持 URL 或本地文件上传）
-- `get_task_status` - 查询任务状态
-- `enhance_video_sync` - 同步增强视频（阻塞等待，默认50秒截断）
+**Video Enhancement**
+- `create_task` - Create a video enhancement task (supports URL or local file upload)
+- `get_task_status` - Query task status
+- `enhance_video_sync` - Synchronously enhance video (blocking wait, truncated at ~50s by default)
 
-**图像分割 (SAM3)**
-- `sam3_predict` - SAM3 图像分割（支持本地路径、URL 或 Base64 图片）
+**Image Segmentation (SAM3)**
+- `sam3_predict` - SAM3 image segmentation (supports local path, URL, or Base64 image)
 
-## 前置要求
+## Prerequisites
 
-- **Node.js >= 18** （检查：`node --version`）
-- **API Key** （用于身份认证，请联系服务提供方获取）
+- **Node.js >= 18** (check: `node --version`)
+- **API Key** (required for authentication)
 
-## 懒人安装（推荐）
+## Lazy Install (Recommended)
 
-如果你使用的 AI Agent 有确定的 MCP 配置路径，直接复制下面这句发给 AI：
+If your AI Agent has a known MCP config path, just copy the line below and send it to your AI:
 
 ```
-帮我安装 npm 包 @avclabs.ai/media-mcp 作为 MCP server。我的 API Key 是：sk-xxxxxxxx。
+Install the npm package @avclabs.ai/media-mcp as an MCP server. My API Key is: sk-xxxxxxxx.
 ```
 
-AI 会自动完成：
-1. 检测你使用的 MCP 客户端
-2. 找到配置文件路径
-3. 写入正确的配置
-4. 提示你重启客户端
+The AI will automatically:
+1. Detect your MCP client
+2. Find the config file path
+3. Write the correct configuration
+4. Prompt you to restart the client
 
-## 手动安装
+## Manual Install
 
-无需安装，直接在 MCP 客户端配置中使用 `npx` 运行。
+No installation needed. Use `npx` directly in your MCP client config.
 
-### 1. Claude Code（CLI）
+### 1. Claude Code (CLI)
 
-在 Claude Code 中运行：
+Run in Claude Code:
 
 ```
 /mcp
 ```
 
-查看输出中 **"User MCPs"** 对应的配置文件路径，然后编辑该文件。
+Check the output for the **"User MCPs"** section to find the config file path, then edit that file.
 
-常见路径（如果 `/mcp` 不可用）：
+Common paths (if `/mcp` is unavailable):
 - **Windows**: `%USERPROFILE%\.claude.json`
 - **macOS**: `~/.claude.json`
 - **Linux**: `~/.claude.json`
-- **旧版/备用**: `~/.claude/mcp.json`
+- **Legacy/Alternative**: `~/.claude/mcp.json`
 
-粘贴以下内容（将 `your-api-key` 替换为实际 API Key）：
+Paste this (replace `your-api-key`):
 
 ```json
 {
@@ -75,20 +75,20 @@ AI 会自动完成：
 }
 ```
 
-保存后运行 `/mcp` 验证是否加载成功。
+Save and run `/mcp` to verify it's loaded.
 
 ### 2. Cursor
 
-进入 **设置 > Tools & MCPs > Add New MCP Server**：
+Go to **Settings > Tools & MCPs > Add New MCP Server**:
 
-- **Name**：`video-enhancement`
-- **Type**：`command`
-- **Command**：
+- **Name**: `video-enhancement`
+- **Type**: `command`
+- **Command**:
   ```bash
   env API_KEY=your-api-key npx -y @avclabs.ai/media-mcp@latest
   ```
 
-或编辑 `~/.cursor/mcp.json`：
+Or edit `~/.cursor/mcp.json`:
 
 ```json
 {
@@ -104,24 +104,24 @@ AI 会自动完成：
 }
 ```
 
-## 验证安装
+## Verify Installation
 
-重启客户端后，确认工具是否加载成功：
+After restarting your client, check if the tools are available:
 
-1. 或直接问 AI："你有哪些可用的工具？"
-2. 应看到：`create_task`、`get_task_status`、`enhance_video_sync`、`sam3_predict`
+1. Or ask: "What tools do you have available?"
+2. You should see: `create_task`, `get_task_status`, `enhance_video_sync`, `sam3_predict`
 
-## 配置项
+## Configuration Options
 
-| 变量名 | 必填 | 默认值 | 说明 |
+| Variable | Required | Default | Description |
 |---|---|---|---|
-| `API_KEY` | **是** | - | API 认证密钥（视频增强和 SAM3 共用） |
-| `HTTP_API_BASE_URL` | 否 | `https://mcp.avc.ai/enhance` | 视频增强服务接口地址 |
-| `SAM3_API_BASE_URL` | 否 | `https://mcp.avc.ai/sam` | SAM3 服务接口地址 |
-| `SAM3_POLL_INTERVAL` | 否 | `2000` | SAM3 轮询间隔（毫秒） |
-| `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | SAM3 最大轮询次数 |
+| `API_KEY` | **Yes** | - | API authentication key (shared by video enhancement and SAM3) |
+| `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Video enhancement service endpoint |
+| `SAM3_API_BASE_URL` | No | `https://mcp.avc.ai/sam` | SAM3 service endpoint |
+| `SAM3_POLL_INTERVAL` | No | `2000` | SAM3 polling interval (milliseconds) |
+| `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | SAM3 maximum polling attempts |
 
-### 自定义服务地址
+### Custom Endpoint
 
 ```json
 {
@@ -133,71 +133,71 @@ AI 会自动完成：
 }
 ```
 
-或通过命令行参数：
+Or via CLI args:
 ```bash
 npx -y @avclabs.ai/media-mcp@latest --base-url https://your-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
 
-## 推荐的工作流程
+## Recommended Workflow
 
-本项目提供了**同步**和**异步**两种模式。
+This project provides both **synchronous** and **asynchronous** modes.
 
-**由于 MCP Agent 对单个 tool 调用通常有约 60 秒的超时限制**，处理时间较长的任务（视频增强）强烈建议使用**异步模式**：
+**Because MCP Agents typically enforce a ~60-second timeout per tool call**, tasks with longer processing times (video enhancement) are strongly recommended to use **asynchronous mode**:
 
-### 异步模式（推荐）
+### Asynchronous Mode (Recommended)
 
-**视频增强**：
-1. 调用 `create_task` 创建任务 → 立即获得 `task_id`
-2. 等待几秒后，调用 `get_task_status` 查询状态
-3. 如果 `status` 为 `processing`，继续等待并重复步骤 2
-4. 如果 `status` 为 `completed`，任务完成，结果中包含 `video_url`
-5. 如果 `status` 为 `failed`，任务失败，结果中包含 `error_message`
+**Video Enhancement:**
+1. Call `create_task` to create a task → immediately get `task_id`
+2. Wait a few seconds, then call `get_task_status` to query the status
+3. If `status` is `processing`, continue waiting and repeat step 2
+4. If `status` is `completed`, the task is done and the result contains `video_url`
+5. If `status` is `failed`, the task failed and the result contains `error_message`
 
-### 同步模式（简单场景）
+### Synchronous Mode (Simple Scenarios)
 
-**视频增强**：
-- 调用 `enhance_video_sync` → 服务器内部自动轮询
-- 默认最多等待50秒
-- 如果50秒内完成，直接返回结果
-- 如果50秒未完成，返回 `task_id` 和提示，让 Agent 切换到 `get_task_status` 继续查询
+**Video Enhancement:**
+- Call `enhance_video_sync` → the server polls internally
+- Defaults to a maximum wait of 50 seconds
+- If completed within 50 seconds, returns the result directly
+- If not completed within 50 seconds, returns `task_id` and instructions for the Agent to switch to `get_task_status`
 
-**图像分割 (SAM3)**：
-- 调用 `sam3_predict` → 服务器内部自动轮询
-- 默认最多等待50秒（25次 × 2秒轮询间隔）
-- 如果50秒内完成，直接返回分割结果
-- 如果50秒未完成，返回截断提示，告知任务仍在处理中
+**Image Segmentation (SAM3):**
+- Call `sam3_predict` → the server polls internally
+- Defaults to a maximum wait of 50 seconds (25 attempts × 2-second polling interval)
+- If completed within 50 seconds, returns the segmentation result directly
+- If not completed within 50 seconds, returns a truncation notice indicating the task is still processing
 
-## 使用示例
+## Usage Examples
 
-配置完成后，用自然语言对 AI 说：
+Once configured, ask your AI agent naturally:
 
-> "帮我把这个视频增强到 1080p：https://example.com/video.mp4"
+> "Enhance this video to 1080p: https://example.com/video.mp4"
 
-> "把我桌面的 video.mp4 提升到 2k 画质"
+> "Improve the quality of /Users/me/Desktop/video.mp4 to 2k"
 
-> "帮我分析这张图片，找出里面的所有物体：C:\\Users\\xxx\\photo.png"
+> "Analyze this image and find all objects: C:\\Users\\xxx\\photo.png"
 
-> "用 SAM3 分割这张图片，prompt 是 'find all cars'"
+> "Use SAM3 to segment this image, prompt: 'find all cars'"
 
-AI 会根据任务复杂度自动选择同步或异步工具完成任务。
+The agent will automatically choose sync or async tools based on task complexity.
 
-## 提供的 Tools
+## Provided Tools
 
-### 视频增强
+### Video Enhancement
 
 #### create_task
 
-创建视频增强任务（异步）。
+Create an asynchronous video enhancement task.
 
-> **推荐使用**：适用于绝大多数场景，尤其是时长超过10秒的视频，可避免超时和长时间阻塞连接。
+> **Recommended for most use cases.** Ideal for longer videos (over 10 seconds) to avoid timeouts and blocking the connection.
 
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
+| Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `video_source` | string | 是 | - | 视频 URL 或本地文件路径（URL 必须公网可访问，不支持需要登录或签名的链接） |
-| `type` | string | 否 | `url` | `url` 或 `local` |
-| `resolution` | string | 否 | `720p` | `480p`、`540p`、`720p`、`1080p`、`2k` |
+| `video_source` | string | Yes | - | Video URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
+| `type` | string | No | `url` | `url` or `local` |
+| `resolution` | string | No | `720p` | `480p`, `540p`, `720p`, `1080p`, `2k` |
 
-**返回值：**
+**Returns:**
 ```json
 {
   "success": true,
@@ -208,15 +208,15 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 
 #### get_task_status
 
-查询视频增强任务状态。
+Query video enhancement task status.
 
-> 返回值中的 `status` 字段可能为：`processing`（处理中）、`completed`（已完成）、`failed`（失败）。如果 `status` 为 `processing`，你需要等待几秒后再次调用此工具轮询。
+> The returned `status` field can be: `processing`, `completed`, or `failed`. If `status` is `processing`, you need to wait a few seconds and call this tool again.
 
-| 参数 | 类型 | 必填 |
+| Parameter | Type | Required |
 |---|---|---|
-| `task_id` | string | 是 |
+| `task_id` | string | Yes |
 
-**返回值：**
+**Returns:**
 ```json
 {
   "success": true,
@@ -228,23 +228,23 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 }
 ```
 
-其中 `message` 字段只在 `status` 为 `processing` 时出现，提示 Agent 继续等待。
+The `message` field only appears when `status` is `processing`, prompting the Agent to continue waiting.
 
 #### enhance_video_sync
 
-同步增强视频（阻塞等待完成）。
+Synchronously enhance video (blocks until completion).
 
-> **仅适合短视频（预计处理时间 < 1 分钟）。** 如果任务在50秒内未完成，工具会提前返回并包含 `task_id`，你需要使用 `get_task_status` 继续查询。
+> **Best for short videos (estimated processing time < 1 minute).** If the task is not completed within 50 seconds, the tool returns early with a `task_id`, and you need to use `get_task_status` to continue querying.
 
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
+| Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `video_source` | string | 是 | - | 视频 URL 或本地文件路径 |
-| `type` | string | 否 | `url` | `url` 或 `local` |
-| `resolution` | string | 否 | `720p` | 目标分辨率 |
-| `poll_interval` | number | 否 | `5` | 轮询间隔（秒） |
-| `timeout` | number | 否 | `50` | 同步等待超时时间（秒），超过后主动返回 |
+| `video_source` | string | Yes | - | Video URL or local file path |
+| `type` | string | No | `url` | `url` or `local` |
+| `resolution` | string | No | `720p` | Target resolution |
+| `poll_interval` | number | No | `5` | Poll interval (seconds) |
+| `timeout` | number | No | `50` | Sync wait timeout (seconds), returns early when exceeded |
 
-**截断返回示例（50秒未完成）：**
+**Truncated return example (not completed within 50s):**
 ```json
 {
   "success": true,
@@ -255,45 +255,45 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 }
 ```
 
-### 图像分割 (SAM3)
+### Image Segmentation (SAM3)
 
 #### sam3_predict
 
-使用 SAM3 分割 API 分析图片，生成推理结果（masks、boxes、scores）。
+Analyze an image using the SAM3 segmentation API to generate inference results (masks, boxes, scores).
 
-**参数：**
+**Parameters:**
 
-图片输入（三选一，必须提供其中一种）：
+Image input (choose one, must provide exactly one):
 
-- `imagePath` (string): 本地图片的绝对路径。支持常见图片格式（如 PNG、JPG、JPEG）。
-  - 示例：`"C:\\Users\\xxx\\photo.png"`、`"/home/user/images/cat.jpg"`
-  - 适用场景：用户明确提供了本地文件路径
+- `imagePath` (string): Absolute path of a local image file. Supports common formats (PNG, JPG, JPEG).
+  - Example: `"C:\\Users\\xxx\\photo.png"`, `"/home/user/images/cat.jpg"`
+  - Use when: The user explicitly provides a local file path
 
-- `imageUrl` (string): 公开可访问的图片 URL。
-  - 示例：`"https://example.com/photo.jpg"`
-  - 适用场景：图片已在网上，用户提供了链接
-  - 注意：URL 必须公开可访问，不支持需要登录或签名的链接
+- `imageUrl` (string): Publicly accessible URL of the image.
+  - Example: `"https://example.com/photo.jpg"`
+  - Use when: The image is already online and the user provides a link
+  - Note: The URL must be publicly accessible. Links requiring login or signatures are not supported
 
-- `imageBase64` (string): Base64 编码的图片数据。
-  - 示例：`"iVBORw0KGgoAAAANSUhEUgAA..."`
-  - 适用场景：用户拖拽或上传了图片附件，Agent 将图片编码为 base64 后传入
-  - 注意：大图片的 base64 数据会比较大，传输时间可能稍长
+- `imageBase64` (string): Base64-encoded image data.
+  - Example: `"iVBORw0KGgoAAAANSUhEUgAA..."`
+  - Use when: The user drags or uploads an image attachment, and the Agent encodes it as base64
+  - Note: Large images will produce very large base64 strings, which may slow transmission
 
-其他参数：
+Other parameters:
 
-- `prompt` (string, required): 英文文本提示，用于指定要在图片中分割的目标物体。由于 SAM3 模型仅接受英文 prompt，建议传入英文描述。如果用户提供中文或其他非英文文本，Agent 会自动翻译为英文后调用。
+- `prompt` (string, required): English text prompt specifying the target object to segment. Since the SAM3 model only accepts English prompts, provide an English description. If the user provides Chinese or other non-English text, the Agent will automatically translate it before calling the tool.
 
-**正常完成返回：**
+**Normal completion return:**
 
-推理完成后，直接返回 JSON 字符串。该 JSON 包含以下三个字段：
+After inference completes, returns a JSON string containing three fields:
 
-- **`masks`**：二维数组。每个元素是一个与输入图片尺寸相同的二值掩码（取值为 0 或 1），用于标记检测到的物体在图片中的像素级位置。数组中的第 i 个掩码对应第 i 个检测到的物体实例。
-- **`boxes`**：二维数组。每个元素是 `[x1, y1, x2, y2]` 格式的边界框坐标，表示检测到的物体在图片中的矩形区域。`x1`、`y1` 为左上角坐标，`x2`、`y2` 为右下角坐标。
+- **`masks`**: 2D array. Each element is a binary mask (values 0 or 1) with the same dimensions as the input image, marking the pixel-level location of detected objects. The i-th mask corresponds to the i-th detected object instance.
+- **`boxes`**: 2D array. Each element is a bounding box in `[x1, y1, x2, y2]` format, representing the rectangular region of the detected object. `x1`, `y1` are the top-left coordinates; `x2`, `y2` are the bottom-right coordinates.
 
-  坐标系说明：以图片左上角为原点 `(0, 0)`，`x` 轴向右增长，`y` 轴向下增长，单位为像素。例如 `[120, 80, 300, 450]` 表示该物体区域从图片左边缘向右 120px、上边缘向下 80px 处开始，延伸至左边缘向右 300px、上边缘向下 450px 处结束，区域宽度为 `x2 - x1 = 180px`，高度为 `y2 - y1 = 370px`。
-- **`scores`**：一维数组。每个元素是对应检测结果的置信度分数，取值范围为 0 到 1。分数越高，表示模型对该检测结果的把握越大。
+  Coordinate system: The top-left corner of the image is the origin `(0, 0)`. The x-axis increases to the right, and the y-axis increases downward, in pixels. For example, `[120, 80, 300, 450]` means the region starts 120px from the left edge and 80px from the top edge, extending to 300px from the left and 450px from the top. Width = `x2 - x1 = 180px`, Height = `y2 - y1 = 370px`.
+- **`scores`**: 1D array. Each element is a confidence score for the corresponding detection result, ranging from 0 to 1. Higher scores indicate greater model confidence.
 
-结果 JSON 内容示例：
+Example result JSON:
 
 ```json
 {
@@ -309,7 +309,7 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 }
 ```
 
-**截断返回示例（50秒未完成）：**
+**Truncated return example (not completed within 50s):**
 ```json
 {
   "success": true,
@@ -320,100 +320,100 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 }
 ```
 
-## 常见问题
+## FAQ
 
-### Agent 调用工具时报超时怎么办？
+### Agent reports timeout when calling tools?
 
-这是本项目重点解决的问题。MCP Agent（如 Claude、Cursor）对单个 tool 调用通常有约 60 秒的超时限制。如果任务处理时间超过此限制，Agent 会报错并切断连接。
+This is the primary issue this project addresses. MCP Agents (such as Claude, Cursor) typically enforce a ~60-second timeout per tool call. If task processing exceeds this limit, the Agent will error and disconnect.
 
-**解决方案：**
+**Solutions:**
 
-1. **优先使用异步工具**：对于视频增强等耗时任务，始终使用 `create_task` + `get_task_status`。这些工具每次调用都是瞬间返回的，不会触发超时。
+1. **Prefer asynchronous tools**: For video enhancement and other time-consuming tasks, always use `create_task` + `get_task_status`. These tools return instantly on each call and will not trigger timeouts.
 
-2. **同步工具的截断机制**：`enhance_video_sync` 已在内部设置了50秒的截断限制。如果任务未在50秒内完成，工具会主动返回 `task_id`，并提示 Agent 使用 `get_task_status` 继续跟进。
+2. **Sync tool truncation mechanism**: `enhance_video_sync` has an internal 50-second truncation limit. If the task is not completed within 50 seconds, the tool proactively returns a `task_id` and instructs the Agent to use `get_task_status` to follow up.
 
-3. **SAM3 的截断机制**：`sam3_predict` 默认轮询25次（约50秒），如果任务未完成会返回截断提示，告知任务仍在处理中。
+3. **SAM3 truncation mechanism**: `sam3_predict` defaults to 25 polling attempts (~50 seconds). If the task is not completed, it returns a truncation notice indicating the task is still processing.
 
-4. **调整 SAM3 轮询参数**（高级）：如果你确定 SAM3 任务通常很快（例如10秒内），可以通过环境变量增加轮询次数：
+4. **Adjust SAM3 polling parameters** (advanced): If you are confident that SAM3 tasks are usually fast (e.g., under 10 seconds), you can increase polling attempts via environment variable:
    ```bash
    SAM3_POLL_MAX_ATTEMPTS=60
    ```
-   但请确保总等待时间不超过 Agent 的超时限制。
+   But ensure the total wait time does not exceed your Agent's timeout limit.
 
-### 拖拽附件后提示找不到文件？
+### Drag-and-drop attachment says file not found?
 
-这是 stdio MCP 的已知限制。当通过 Agent 界面拖拽或上传附件时，文件路径通常不会自动传给 MCP Server。
+This is a known limitation of stdio MCP. When dragging or uploading an attachment through the Agent interface, the file path is usually not automatically passed to the MCP Server.
 
-**解决方法：**
+**Solutions:**
 
-1. **同时提供路径**（推荐）：拖拽图片后，在文字中补充说明图片的本地绝对路径：
-   > "请处理这张图片 `D:\\photos\\cat.jpg`，找出里面的猫"
+1. **Provide the path simultaneously** (recommended): After dragging the image, add the local absolute path in your message:
+   > "Please analyze this image `D:\\photos\\cat.jpg` and find the cat"
 
-2. **等待自动编码**：Claude 可能会自动将图片编码为 base64 传入。如果成功，无需额外操作。
+2. **Wait for auto-encoding**: Claude may automatically encode the image as base64. If successful, no extra action is needed.
 
-3. **回答路径询问**：如果 Claude 询问图片路径，直接回复本地绝对路径即可。
+3. **Reply to path inquiry**: If Claude asks for the image path, simply reply with the local absolute path.
 
-### 三种输入方式有优先级吗？
+### Is there a priority among the three input methods?
 
-没有严格优先级。Claude 会根据对话上下文自动选择最合适的方式：
+There is no strict priority. Claude will automatically choose the most appropriate method based on conversation context:
 
-- 你提供了本地路径 → 使用 `imagePath`
-- 你提供了网络链接 → 使用 `imageUrl`
-- 你拖拽了附件且没有路径 → 尝试 `imageBase64`
+- You provided a local path → uses `imagePath`
+- You provided a web link → uses `imageUrl`
+- You dragged an attachment without a path → tries `imageBase64`
 
-### 支持哪些图片格式？
+### What image formats are supported?
 
-支持常见格式：PNG、JPG、JPEG、BMP、WebP 等。建议优先使用 PNG 或 JPG。
+Common formats: PNG, JPG, JPEG, BMP, WebP, etc. PNG or JPG is recommended.
 
-### URL 图片下载失败怎么办？
+### What if URL image download fails?
 
-确保 URL 是**公开可访问**的，不需要登录、Cookie 或签名。如果图片在需要身份验证的服务上（如私有 S3 Bucket、需要登录的图床），请先下载到本地再使用 `imagePath`。
+Ensure the URL is **publicly accessible**, requiring no login, cookies, or signatures. If the image is on a service requiring authentication (e.g., private S3 Bucket, login-required image host), download it locally first and use `imagePath`.
 
-### Base64 图片太大怎么办？
+### What if the base64 image is too large?
 
-如果图片很大（如 4K 分辨率），base64 编码后的数据会非常大，可能导致传输变慢。建议：
+If the image is very large (e.g., 4K resolution), the base64-encoded data will be very large and may slow transmission. Suggestions:
 
-1. 使用 `imagePath` 代替
-2. 或先将图片压缩后再编码
+1. Use `imagePath` instead
+2. Or compress the image before encoding
 
-## 文件上传说明
+## File Upload Notes
 
-当 `type` 为 `"local"` 时，MCP Server 会：
-1. 读取本地文件
-2. 通过预签名 URL 直传到 TOS 对象存储
-3. **最大文件大小：100MB**
+When `type` is `"local"`:
+1. File is read locally by the MCP Server
+2. Uploaded directly to TOS object storage via pre-signed URL
+3. **Max file size: 100MB**
 
-## 故障排查
+## Troubleshooting
 
 ### "command not found: npx"
 
-安装 Node.js >= 18：https://nodejs.org/
+Install Node.js >= 18: https://nodejs.org/
 
-### "错误: 需要提供 --api-key 或设置 API_KEY"
+### "Error: 需要提供 --api-key 或设置 API_KEY"
 
-API Key 缺失，请检查配置中的 `env.API_KEY`。
+Your API Key is missing. Double-check the `env.API_KEY` in your config.
 
-### MCP Server 在客户端显示红色/错误
+### MCP Server shows red/error in client
 
-查看日志：
-- **Claude Desktop macOS**：`~/Library/Logs/Claude/mcp*.log`
-- **Claude Desktop Windows**：`%APPDATA%\Claude\logs\mcp*.log`
-- **Cursor**：Output 面板 > MCP
+Check logs:
+- **Claude Desktop macOS**: `~/Library/Logs/Claude/mcp*.log`
+- **Claude Desktop Windows**: `%APPDATA%\Claude\logs\mcp*.log`
+- **Cursor**: Output panel > MCP
 
-### "TOS 上传失败"
+### "TOS upload failed"
 
-通常是签名不匹配，请确认 `HTTP_API_BASE_URL` 和 `API_KEY` 正确且有效。
+Usually a signature mismatch. Ensure your `HTTP_API_BASE_URL` and `API_KEY` are correct and active.
 
-## 全局安装（可选）
+## Global Install (Alternative)
 
-如果你不想每次都用 `npx`：
+If you prefer not using `npx` every time:
 
 ```bash
 npm install -g @avclabs.ai/media-mcp
 ```
 
-然后在配置中使用 `"command": "media-mcp"` 配合 `"args": ["--api-key", "your-api-key"]` 。
+Then use `"command": "media-mcp"` with `"args": ["--api-key", "your-api-key"]` in your config.
 
 ## License
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+MIT License - See [LICENSE](LICENSE) file for details
