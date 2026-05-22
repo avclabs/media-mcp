@@ -7,21 +7,21 @@ import FormData from 'form-data';
 
 // Schemas
 const CreateTaskSchema = z.object({
-  video_source: z.string().describe('视频URL地址或本地文件路径（URL必须公网可访问，不支持需要登录或签名的链接）'),
-  type: z.enum(['url', 'local']).default('url').describe('上传类型：url=网络视频，local=本地文件'),
-  resolution: z.enum(['480p', '540p', '720p', '1080p', '2k']).default('720p').describe('目标分辨率，默认720p'),
+  video_source: z.string().describe('Video URL or local file path (URL must be publicly accessible, login or signed links are not supported)'),
+  type: z.enum(['url', 'local']).default('url').describe('Upload type: url=remote video, local=local file'),
+  resolution: z.enum(['480p', '540p', '720p', '1080p', '2k']).default('720p').describe('Target resolution, default 720p'),
 });
 
 const GetTaskStatusSchema = z.object({
-  task_id: z.string().describe('任务ID'),
+  task_id: z.string().describe('Task ID'),
 });
 
 const EnhanceVideoSyncSchema = z.object({
-  video_source: z.string().describe('视频URL地址或本地文件路径（URL必须公网可访问，不支持需要登录或签名的链接）'),
-  type: z.enum(['url', 'local']).default('url').describe('上传类型：url=网络视频，local=本地文件'),
-  resolution: z.enum(['480p', '540p', '720p', '1080p', '2k']).default('720p').describe('目标分辨率，默认720p'),
-  poll_interval: z.number().default(5).describe('轮询间隔（秒），默认5'),
-  timeout: z.number().default(50).describe('同步等待的超时时间（秒），默认50。超过后工具会主动返回 task_id，请使用 get_task_status 继续查询'),
+  video_source: z.string().describe('Video URL or local file path (URL must be publicly accessible, login or signed links are not supported)'),
+  type: z.enum(['url', 'local']).default('url').describe('Upload type: url=remote video, local=local file'),
+  resolution: z.enum(['480p', '540p', '720p', '1080p', '2k']).default('720p').describe('Target resolution, default 720p'),
+  poll_interval: z.number().default(5).describe('Polling interval in seconds, default 5'),
+  timeout: z.number().default(50).describe('Synchronous wait timeout in seconds, default 50. Returns task_id early when exceeded, use get_task_status to continue polling'),
 });
 
 export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, apiKey: string): void {
@@ -37,18 +37,18 @@ export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, a
   // create_task tool
   server.tool(
     'create_task',
-    `创建视频增强任务（异步）
+    `Create a video enhancement task (asynchronous).
 
-支持两种上传方式：
-1. URL 上传：提供视频 URL
-2. 本地上传：提供本地文件路径，MCP Server 自动上传到 TOS 对象存储
+Two upload methods are supported:
+1. URL upload: provide a video URL
+2. Local upload: provide a local file path, the MCP Server will auto-upload to TOS object storage
 
-参数说明：
-- video_source: 视频 URL 或本地文件路径
-- type: "url" 或 "local"
-- resolution: 目标分辨率
+Parameters:
+- video_source: video URL or local file path
+- type: "url" or "local"
+- resolution: target resolution
 
-创建任务后会立即返回 task_id。你需要使用 get_task_status 工具轮询查询任务结果，直到 status 变为 "completed" 或 "failed"。`,
+After creating a task, a task_id is returned immediately. Use get_task_status to poll for results until status becomes "completed" or "failed".`,
     CreateTaskSchema.shape,
     async (args) => {
       try {
@@ -68,7 +68,7 @@ export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, a
   // get_task_status tool
   server.tool(
     'get_task_status',
-    '查询视频增强任务状态。返回值中的 status 字段可能为：processing（处理中）、completed（已完成）、failed（失败）。如果 status 为 processing，你需要等待几秒后再次调用此工具轮询。',
+    'Query video enhancement task status. The status field can be: processing, completed, or failed. If status is processing, wait a few seconds and call this tool again to poll.',
     GetTaskStatusSchema.shape,
     async (args) => {
       try {
@@ -88,20 +88,20 @@ export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, a
   // enhance_video_sync tool
   server.tool(
     'enhance_video_sync',
-    `同步增强视频（阻塞等待完成）
+    `Synchronously enhance video (blocks until completion).
 
-支持两种上传方式：
-1. URL 上传：提供视频 URL
-2. 本地上传：提供本地文件路径，MCP Server 自动上传到 TOS 对象存储
+Two upload methods are supported:
+1. URL upload: provide a video URL
+2. Local upload: provide a local file path, the MCP Server will auto-upload to TOS object storage
 
-参数说明：
-- video_source: 视频 URL 或本地文件路径
-- type: "url" 或 "local"
-- resolution: 目标分辨率
-- poll_interval: 轮询间隔（秒）
-- timeout: 同步等待的超时时间（秒），默认50
+Parameters:
+- video_source: video URL or local file path
+- type: "url" or "local"
+- resolution: target resolution
+- poll_interval: polling interval in seconds
+- timeout: synchronous wait timeout in seconds, default 50
 
-此工具仅适合短视频（预计处理时间 < 1 分钟）。如果任务在 50 秒内未完成，工具会提前返回并包含 task_id，你需要使用 get_task_status 继续查询。`,
+Best for short videos (estimated processing time < 1 minute). If the task is not completed within 50 seconds, the tool returns early with a task_id. Use get_task_status to continue polling.`,
     EnhanceVideoSyncSchema.shape,
     async (args) => {
       try {
@@ -128,12 +128,12 @@ export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, a
 
 function checkLocalFile(filePath: string): { filePath: string; fileName: string } {
   if (!fs.existsSync(filePath)) {
-    throw new Error(`文件不存在: ${filePath}`);
+    throw new Error(`File does not exist: ${filePath}`);
   }
   const stats = fs.statSync(filePath);
   const maxSize = 100 * 1024 * 1024;
   if (stats.size > maxSize) {
-    throw new Error('文件大小超过 100MB 限制');
+    throw new Error('File size exceeds 100MB limit');
   }
   return { filePath, fileName: path.basename(filePath) };
 }
@@ -145,7 +145,7 @@ async function getTosSignature(client: AxiosInstance, fileName: string): Promise
   });
   const data = response.data;
   if (data.code !== 0 && data.code !== 200) {
-    throw new Error(data.message || '获取 TOS 签名失败');
+    throw new Error(data.message || 'Failed to get TOS signature');
   }
   return data.data;
 }
@@ -187,7 +187,7 @@ async function uploadToTos(filePath: string, signatureData: any): Promise<void> 
       fileName,
       fileSize: fs.statSync(filePath).size,
     }, null, 2);
-    throw new Error(`TOS 上传失败: ${response.status} ${response.statusText}\n调试信息: ${debugInfo}`);
+    throw new Error(`TOS upload failed: ${response.status} ${response.statusText}\nDebug info: ${debugInfo}`);
   }
 }
 
@@ -245,7 +245,7 @@ async function getTaskStatus(client: AxiosInstance, taskId: string): Promise<any
     error_message: result.error_message,
     created_at: result.created_at,
     updated_at: result.updated_at,
-    message: result.status === 'processing' ? '任务仍在处理中，请稍后再查询' : undefined,
+    message: result.status === 'processing' ? 'Task is still processing, please check again later' : undefined,
   };
 }
 
@@ -278,8 +278,8 @@ async function enhanceVideoSync(
         success: true,
         status: 'processing',
         task_id: taskId,
-        message: `任务仍在处理中（已等待 ${timeout} 秒）。请使用 get_task_status 工具继续查询此任务状态。`,
-        note: '此工具对长任务的同步等待已被截断，请切换到 get_task_status 轮询模式。',
+        message: `Task is still processing (waited ${timeout} seconds). Please use get_task_status to continue polling.`,
+        note: 'The synchronous wait for this long-running task has been truncated. Switch to get_task_status polling.',
       };
     }
     await sleep(pollInterval * 1000);

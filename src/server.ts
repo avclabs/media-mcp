@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * MCP Server - 提供视频增强和 SAM3 图像分割功能
+ * MCP Server - Video enhancement and SAM3 image segmentation
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -35,7 +35,7 @@ function loadConfig(): { baseUrl: string; sam3BaseUrl: string } {
   return { baseUrl: 'https://mcp.avc.ai/enhance', sam3BaseUrl: 'https://mcp.avc.ai/sam' };
 }
 
-// 主入口
+// Main entry
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const config = loadConfig();
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
   let sam3PollInterval = parseInt(process.env.SAM3_POLL_INTERVAL || '2000', 10);
   let sam3PollMaxAttempts = parseInt(process.env.SAM3_POLL_MAX_ATTEMPTS || '25', 10);
 
-  // 解析命令行参数
+  // Parse command line arguments
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--base-url' && i + 1 < args.length) {
       baseUrl = args[i + 1];
@@ -67,7 +67,7 @@ async function main(): Promise<void> {
   }
 
   if (!apiKey) {
-    console.error('错误: 需要提供 --api-key 或设置 API_KEY 环境变量');
+    console.error('Error: --api-key argument or API_KEY environment variable is required');
     process.exit(1);
   }
 
@@ -83,10 +83,10 @@ async function main(): Promise<void> {
     }
   );
 
-  // 注册视频增强 tools
+  // Register video enhancement tools
   setupVideoEnhancementTools(server, baseUrl, apiKey);
 
-  // 注册 SAM3 tools
+  // Register SAM3 tools
   setupSam3Tools(server, sam3BaseUrl, sam3ApiKey, sam3PollInterval, sam3PollMaxAttempts);
 
   const transport = new StdioServerTransport();

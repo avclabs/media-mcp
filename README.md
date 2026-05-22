@@ -389,7 +389,7 @@ When `type` is `"local"`:
 
 Install Node.js >= 18: https://nodejs.org/
 
-### "Error: 需要提供 --api-key 或设置 API_KEY"
+### "Error: --api-key argument or API_KEY environment variable is required"
 
 Your API Key is missing. Double-check the `env.API_KEY` in your config.
 
