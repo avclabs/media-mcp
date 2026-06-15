@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * MCP Server - Video enhancement and SAM3 image segmentation
+ * MCP Server - Video enhancement, image enhancement/colorization/denoising, and SAM3 image segmentation
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { setupVideoEnhancementTools } from './video-enhancement.js';
+import { setupImageEnhancementTools } from './image-enhancement.js';
 import { setupSam3Tools } from './sam3.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -85,6 +86,9 @@ async function main(): Promise<void> {
 
   // Register video enhancement tools
   setupVideoEnhancementTools(server, baseUrl, apiKey);
+
+  // Register image enhancement tools
+  setupImageEnhancementTools(server, baseUrl, apiKey);
 
   // Register SAM3 tools
   setupSam3Tools(server, sam3BaseUrl, sam3ApiKey, sam3PollInterval, sam3PollMaxAttempts);

@@ -12,6 +12,10 @@ const Sam3PredictSchema = z.object({
   prompt: z.string().describe('Text prompt for mask generation. Must be in English. If the user provides Chinese or other non-English text, translate it to English before calling this tool'),
 });
 
+const GetSam3TaskStatusSchema = z.object({
+  task_id: z.string().describe('SAM3 task ID returned by sam3_predict'),
+});
+
 export function setupSam3Tools(
   server: McpServer,
   baseUrl: string,
@@ -47,6 +51,65 @@ Prompt must be in English. If the user provides Chinese or other non-English tex
         const result = await sam3PredictTool(client, pollInterval, pollMaxAttempts, args);
         return {
           content: [{ type: 'text', text: result }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: errorMessage }, null, 2) }],
+        };
+      }
+    }
+  );
+
+  server.tool(
+    'get_sam3_task_status',
+    'Query SAM3 image segmentation task status by task_id. Status can be: processing, completed, or failed. If completed, the result URL is returned.',
+    GetSam3TaskStatusSchema.shape,
+    async (args) => {
+      try {
+        if (!apiKey) {
+          throw new Error('SAM3 API Key not configured. Please set API_KEY environment variable or --api-key argument.');
+        }
+        const data = await getSam3Result(client, args.task_id);
+
+        if (data.status === 'failed') {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                success: false,
+                task_id: args.task_id,
+                status: 'failed',
+                error: data.error_message || 'Task failed',
+              }, null, 2),
+            }],
+          };
+        }
+
+        if (data.status === 'completed') {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                success: true,
+                task_id: args.task_id,
+                status: 'completed',
+                result_url: data.result,
+              }, null, 2),
+            }],
+          };
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              task_id: args.task_id,
+              status: data.status || 'processing',
+              message: 'Task is still processing, please check again later.',
+            }, null, 2),
+          }],
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

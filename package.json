@@ -1,8 +1,8 @@
 {
   "type": "module",
   "name": "@avclabs.ai/media-mcp",
-  "version": "0.2.1",
-  "description": "MCP Server for video enhancement and image segmentation (SAM3)",
+  "version": "0.3.0",
+  "description": "MCP Server for video enhancement, image enhancement/colorization/denoising, and image segmentation (SAM3)",
   "mcpName": "io.github.avclabs/media-mcp",
   "main": "dist/server.js",
   "types": "dist/server.d.ts",
@@ -26,7 +26,10 @@
     "mcp",
     "model-context-protocol",
     "video",
+    "image",
     "enhancement",
+    "colorization",
+    "denoising",
     "http",
     "client",
     "server",
@@ -64,7 +67,7 @@
       "HTTP_API_BASE_URL": "https://mcp.avc.ai/enhance",
       "SAM3_API_BASE_URL": "https://mcp.avc.ai/sam"
     },
-    "description": "视频增强 + SAM3 图像分割 MCP 服务",
+    "description": "视频增强 + 图片增强/上色/降噪 + SAM3 图像分割 MCP 服务",
     "setup": "需要替换 env.API_KEY 为你的 API Key"
   },
   "engines": {

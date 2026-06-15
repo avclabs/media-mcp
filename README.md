@@ -6,7 +6,7 @@ English | [中文](https://github.com/avclabs/media-mcp/blob/main/README_CN.md)
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A video enhancement and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with backend HTTP Servers.
+A video enhancement, image enhancement/colorization/denoising, and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with backend HTTP Servers.
 
 ## Features
 
@@ -17,8 +17,15 @@ Provides the following MCP Tools:
 - `get_task_status` - Query task status
 - `enhance_video_sync` - Synchronously enhance video (blocking wait, truncated at ~50s by default)
 
+**Image Enhancement**
+- `enhance_image_sync` - Enhance image quality and optimize faces (supports URL or local file upload)
+- `colorize_image_sync` - Colorize black-and-white photos (supports URL or local file upload)
+- `denoise_image_sync` - Remove noise from images (supports URL or local file upload)
+- `get_image_task_status` - Query image task status (for polling after sync timeout)
+
 **Image Segmentation (SAM3)**
 - `sam3_predict` - SAM3 image segmentation (supports local path, URL, or Base64 image)
+- `get_sam3_task_status` - Query SAM3 task status (for polling after sync timeout)
 
 ## Prerequisites
 
@@ -109,7 +116,7 @@ Or edit `~/.cursor/mcp.json`:
 After restarting your client, check if the tools are available:
 
 1. Or ask: "What tools do you have available?"
-2. You should see: `create_task`, `get_task_status`, `enhance_video_sync`, `sam3_predict`
+2. You should see: `create_task`, `get_task_status`, `enhance_video_sync`, `enhance_image_sync`, `colorize_image_sync`, `denoise_image_sync`, `get_image_task_status`, `sam3_predict`, `get_sam3_task_status`
 
 ## Configuration Options
 
@@ -174,6 +181,12 @@ Once configured, ask your AI agent naturally:
 > "Enhance this video to 1080p: https://example.com/video.mp4"
 
 > "Improve the quality of /Users/me/Desktop/video.mp4 to 2k"
+
+> "Enhance this image: https://example.com/photo.jpg"
+
+> "Colorize this black-and-white photo: /Users/me/Desktop/old_photo.png"
+
+> "Remove noise from this image: C:\\Users\\xxx\\noisy.jpg"
 
 > "Analyze this image and find all objects: C:\\Users\\xxx\\photo.png"
 
@@ -255,6 +268,120 @@ Synchronously enhance video (blocks until completion).
 }
 ```
 
+### Image Enhancement
+
+Three image processing tools are provided, each targeting a specific use case:
+
+| Tool | Function | Use Case |
+|---|---|---|
+| `enhance_image_sync` | Image quality enhancement & face optimization | Blurry, low-resolution, or degraded photos |
+| `colorize_image_sync` | Black-and-white photo colorization | Restoring old B&W photos with realistic colors |
+| `denoise_image_sync` | Image noise removal | Noisy/grainy photos taken in low light |
+
+All three tools share the same parameters and behavior pattern. They are **synchronous** — the tool blocks until the image is processed or the timeout is reached.
+
+**Supported image formats**: PNG, JPG, JPEG, BMP, WebP, etc.
+
+**Two upload methods**:
+1. **URL upload**: provide a publicly accessible image URL (`type: "url"`)
+2. **Local upload**: provide a local file path, the MCP Server auto-uploads to TOS object storage (`type: "local"`, max file size: 100MB)
+
+#### enhance_image_sync
+
+Synchronously enhance an image to improve quality and optimize faces.
+
+> The tool internally creates a task and polls for the result. If processing completes within the timeout (default 50s), the result is returned directly. If not, the tool returns early with a `task_id` — use `get_image_task_status` to continue polling.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `image_source` | string | Yes | - | Image URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
+| `type` | string | No | `url` | `url` or `local` |
+| `scale` | number | No | `2` | Enhancement scale multiplier (e.g. `2` for 2x, `4` for 4x upscaling) |
+| `poll_interval` | number | No | `5` | Poll interval in seconds |
+| `timeout` | number | No | `50` | Sync wait timeout in seconds, returns early when exceeded |
+
+**Normal completion return:**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "completed",
+  "progress": 100,
+  "image_url": "https://..."
+}
+```
+
+**Truncated return (not completed within 50s):**
+```json
+{
+  "success": true,
+  "status": "processing",
+  "task_id": "xxx",
+  "message": "Task is still processing (waited 50 seconds). Please use get_image_task_status to continue polling.",
+  "note": "The synchronous wait for this long-running task has been truncated. Switch to get_image_task_status polling."
+}
+```
+
+#### colorize_image_sync
+
+Synchronously colorize a black-and-white photo with AI.
+
+> Best for old black-and-white photos. The AI will add realistic colors to the image. Supports the same parameters and return format as `enhance_image_sync`.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `image_source` | string | Yes | - | Image URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
+| `type` | string | No | `url` | `url` or `local` |
+| `poll_interval` | number | No | `5` | Poll interval in seconds |
+| `timeout` | number | No | `50` | Sync wait timeout in seconds, returns early when exceeded |
+
+**Returns:** Same format as `enhance_image_sync`.
+
+#### denoise_image_sync
+
+Synchronously remove noise from an image.
+
+> Best for grainy/noisy photos taken in low-light conditions or with high ISO settings. Supports the same parameters and return format as `enhance_image_sync`.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `image_source` | string | Yes | - | Image URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
+| `type` | string | No | `url` | `url` or `local` |
+| `poll_interval` | number | No | `5` | Poll interval in seconds |
+| `timeout` | number | No | `50` | Sync wait timeout in seconds, returns early when exceeded |
+
+**Returns:** Same format as `enhance_image_sync`.
+
+#### get_image_task_status
+
+Query image processing task status. Used to poll for results when a sync tool times out.
+
+> The returned `status` field can be: `processing`, `completed`, or `failed`. If `status` is `processing`, wait a few seconds and call this tool again.
+
+| Parameter | Type | Required |
+|---|---|---|
+| `task_id` | string | Yes |
+
+**Returns:**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "completed",
+  "progress": 100,
+  "image_url": "https://...",
+  "message": "Task is still processing, please check again later"
+}
+```
+
+The `message` field only appears when `status` is `processing`, prompting the Agent to continue waiting.
+
+#### Recommended Workflow for Image Tools
+
+1. **For most images**: Call `enhance_image_sync` / `colorize_image_sync` / `denoise_image_sync` directly — the tool handles everything and returns the result
+2. **If truncated**: The tool returns a `task_id`, then use `get_image_task_status` to poll until `status` becomes `completed` or `failed`
+3. **If failed**: Check the `error_message` field for details
+
 ### Image Segmentation (SAM3)
 
 #### sam3_predict
@@ -317,6 +444,46 @@ Example result JSON:
   "task_id": "xxx",
   "message": "Task is still processing (waited about 50 seconds). Please retry later or record this task_id for manual follow-up.",
   "note": "The synchronous wait for this long-running task has been truncated."
+}
+```
+
+#### get_sam3_task_status
+
+Query SAM3 segmentation task status. Used to poll for results when `sam3_predict` times out.
+
+> The returned `status` field can be: `processing`, `completed`, or `failed`. If `status` is `processing`, wait a few seconds and call this tool again.
+
+| Parameter | Type | Required |
+|---|---|---|
+| `task_id` | string | Yes |
+
+**Completed return:**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "completed",
+  "result_url": "https://..."
+}
+```
+
+**Processing return:**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "processing",
+  "message": "Task is still processing, please check again later."
+}
+```
+
+**Failed return:**
+```json
+{
+  "success": false,
+  "task_id": "xxx",
+  "status": "failed",
+  "error": "Task failed"
 }
 ```
 

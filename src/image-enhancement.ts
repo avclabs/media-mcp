@@ -6,25 +6,34 @@ import { z } from 'zod';
 import FormData from 'form-data';
 
 // Schemas
-const CreateTaskSchema = z.object({
-  video_source: z.string().describe('Video URL or local file path (URL must be publicly accessible, login or signed links are not supported)'),
-  type: z.enum(['url', 'local']).default('url').describe('Upload type: url=remote video, local=local file'),
-  resolution: z.enum(['480p', '540p', '720p', '1080p', '2k']).default('720p').describe('Target resolution, default 720p'),
+const EnhanceImageSyncSchema = z.object({
+  image_source: z.string().describe('Image URL or local file path (URL must be publicly accessible, login or signed links are not supported)'),
+  type: z.enum(['url', 'local']).default('url').describe('Upload type: url=remote image, local=local file'),
+  scale: z.number().default(2).describe('Enhancement scale multiplier, default 2. Controls the upscaling factor for image enhancement (e.g. 2=2x, 4=4x)'),
+  poll_interval: z.number().default(5).describe('Polling interval in seconds, default 5'),
+  timeout: z.number().default(50).describe('Synchronous wait timeout in seconds, default 50. Returns task_id early when exceeded, use get_image_task_status to continue polling'),
 });
 
-const GetTaskStatusSchema = z.object({
+const ColorizeImageSyncSchema = z.object({
+  image_source: z.string().describe('Image URL or local file path (URL must be publicly accessible, login or signed links are not supported)'),
+  type: z.enum(['url', 'local']).default('url').describe('Upload type: url=remote image, local=local file'),
+  poll_interval: z.number().default(5).describe('Polling interval in seconds, default 5'),
+  timeout: z.number().default(50).describe('Synchronous wait timeout in seconds, default 50. Returns task_id early when exceeded, use get_image_task_status to continue polling'),
+});
+
+const DenoiseImageSyncSchema = z.object({
+  image_source: z.string().describe('Image URL or local file path (URL must be publicly accessible, login or signed links are not supported)'),
+  type: z.enum(['url', 'local']).default('url').describe('Upload type: url=remote image, local=local file'),
+  poll_interval: z.number().default(5).describe('Polling interval in seconds, default 5'),
+  timeout: z.number().default(50).describe('Synchronous wait timeout in seconds, default 50. Returns task_id early when exceeded, use get_image_task_status to continue polling'),
+});
+
+// Schema - status query
+const GetImageTaskStatusSchema = z.object({
   task_id: z.string().describe('Task ID'),
 });
 
-const EnhanceVideoSyncSchema = z.object({
-  video_source: z.string().describe('Video URL or local file path (URL must be publicly accessible, login or signed links are not supported)'),
-  type: z.enum(['url', 'local']).default('url').describe('Upload type: url=remote video, local=local file'),
-  resolution: z.enum(['480p', '540p', '720p', '1080p', '2k']).default('720p').describe('Target resolution, default 720p'),
-  poll_interval: z.number().default(5).describe('Polling interval in seconds, default 5'),
-  timeout: z.number().default(50).describe('Synchronous wait timeout in seconds, default 50. Returns task_id early when exceeded, use get_task_status to continue polling'),
-});
-
-export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, apiKey: string): void {
+export function setupImageEnhancementTools(server: McpServer, baseUrl: string, apiKey: string): void {
   const client: AxiosInstance = axios.create({
     baseURL: baseUrl.replace(/\/$/, ''),
     headers: {
@@ -34,25 +43,22 @@ export function setupVideoEnhancementTools(server: McpServer, baseUrl: string, a
     timeout: 60000,
   });
 
-  // create_task tool
+  // ========== Sync task tools ==========
+
+  // enhance_image_sync tool
   server.tool(
-    'create_task',
-    `Create a video enhancement task (asynchronous).
+    'enhance_image_sync',
+    `Enhance/upscale an image to improve quality (图片增强/放大/超分辨率). Use this tool ONLY for image enhancement and upscaling tasks.
 
 Two upload methods are supported:
-1. URL upload: provide a video URL
+1. URL upload: provide an image URL
 2. Local upload: provide a local file path, the MCP Server will auto-upload to TOS object storage
 
-Parameters:
-- video_source: video URL or local file path
-- type: "url" or "local"
-- resolution: target resolution
-
-After creating a task, a task_id is returned immediately. Use get_task_status to poll for results until status becomes "completed" or "failed".`,
-    CreateTaskSchema.shape,
+Best for images with estimated processing time < 1 minute. If the task is not completed within 50 seconds, the tool returns early with a task_id. Use get_image_task_status to continue polling.`,
+    EnhanceImageSyncSchema.shape,
     async (args) => {
       try {
-        const result = await createTask(client, args.video_source, args.type, args.resolution);
+        const result = await processImageSync(client, args.image_source, args.type, 'enhance', args.poll_interval, args.timeout, args.scale);
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
@@ -65,14 +71,20 @@ After creating a task, a task_id is returned immediately. Use get_task_status to
     }
   );
 
-  // get_task_status tool
+  // colorize_image_sync tool
   server.tool(
-    'get_task_status',
-    'Query video enhancement task status. The status field can be: processing, completed, or failed. If status is processing, wait a few seconds and call this tool again to poll.',
-    GetTaskStatusSchema.shape,
+    'colorize_image_sync',
+    `Colorize a black-and-white photo (黑白照片上色/旧照片上色). Use this tool ONLY for adding color to grayscale or black-and-white images.
+
+Two upload methods are supported:
+1. URL upload: provide an image URL
+2. Local upload: provide a local file path, the MCP Server will auto-upload to TOS object storage
+
+Best for images with estimated processing time < 1 minute. If the task is not completed within 50 seconds, the tool returns early with a task_id. Use get_image_task_status to continue polling.`,
+    ColorizeImageSyncSchema.shape,
     async (args) => {
       try {
-        const result = await getTaskStatus(client, args.task_id);
+        const result = await processImageSync(client, args.image_source, args.type, 'colorize', args.poll_interval, args.timeout);
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
@@ -85,34 +97,42 @@ After creating a task, a task_id is returned immediately. Use get_task_status to
     }
   );
 
-  // enhance_video_sync tool
+  // denoise_image_sync tool
   server.tool(
-    'enhance_video_sync',
-    `Synchronously enhance video (blocks until completion).
+    'denoise_image_sync',
+    `Remove noise from an image (图片降噪/去噪). Use this tool ONLY for denoising noisy or grainy images.
 
 Two upload methods are supported:
-1. URL upload: provide a video URL
+1. URL upload: provide an image URL
 2. Local upload: provide a local file path, the MCP Server will auto-upload to TOS object storage
 
-Parameters:
-- video_source: video URL or local file path
-- type: "url" or "local"
-- resolution: target resolution
-- poll_interval: polling interval in seconds
-- timeout: synchronous wait timeout in seconds, default 50
-
-Best for short videos (estimated processing time < 1 minute). If the task is not completed within 50 seconds, the tool returns early with a task_id. Use get_task_status to continue polling.`,
-    EnhanceVideoSyncSchema.shape,
+Best for images with estimated processing time < 1 minute. If the task is not completed within 50 seconds, the tool returns early with a task_id. Use get_image_task_status to continue polling.`,
+    DenoiseImageSyncSchema.shape,
     async (args) => {
       try {
-        const result = await enhanceVideoSync(
-          client,
-          args.video_source,
-          args.type,
-          args.resolution,
-          args.poll_interval,
-          args.timeout
-        );
+        const result = await processImageSync(client, args.image_source, args.type, 'denoise', args.poll_interval, args.timeout);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: errorMessage }, null, 2) }],
+        };
+      }
+    }
+  );
+
+  // ========== Status query tool ==========
+
+  // get_image_task_status tool
+  server.tool(
+    'get_image_task_status',
+    'Query image processing task status. The status field can be: processing, completed, or failed. If status is processing, wait a few seconds and call this tool again to poll.',
+    GetImageTaskStatusSchema.shape,
+    async (args) => {
+      try {
+        const result = await getImageTaskStatus(client, args.task_id);
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
@@ -138,9 +158,9 @@ function checkLocalFile(filePath: string): { filePath: string; fileName: string 
   return { filePath, fileName: path.basename(filePath) };
 }
 
-async function getTosSignature(client: AxiosInstance, fileName: string): Promise<any> {
+async function getImageTosSignature(client: AxiosInstance, fileName: string): Promise<any> {
   const response = await client.post('/api/v3/contents/generations/tos-signature', {
-    file_type: 'video',
+    file_type: 'image',
     file_name: fileName,
   });
   const data = response.data;
@@ -202,21 +222,48 @@ function parseFileIdFromUrl(url: string): string {
   return decodeURIComponent(segments.pop() || '');
 }
 
-async function createTask(
+function getEndpointByTaskType(taskType: string): string {
+  switch (taskType) {
+    case 'enhance':
+      return '/api/v3/contents/generations/image/enhance';
+    case 'colorize':
+      return '/api/v3/contents/generations/image/colorize';
+    case 'denoise':
+      return '/api/v3/contents/generations/image/denoise';
+    default:
+      throw new Error(`Unknown task_type: ${taskType}`);
+  }
+}
+
+function getModelByTaskType(taskType: string): string {
+  switch (taskType) {
+    case 'enhance':
+      return 'avc-image-enhance';
+    case 'colorize':
+      return 'avc-image-colorize';
+    case 'denoise':
+      return 'avc-image-denoise';
+    default:
+      throw new Error(`Unknown task_type: ${taskType}`);
+  }
+}
+
+async function createImageTask(
   client: AxiosInstance,
-  videoSource: string,
+  imageSource: string,
   sourceType: string,
-  resolution: string
+  taskType: string,
+  scale?: number
 ): Promise<any> {
   let contentItem: any;
 
   if (sourceType === 'local') {
-    const fileInfo = checkLocalFile(videoSource);
+    const fileInfo = checkLocalFile(imageSource);
 
     // Step 1: Get TOS signature
     let signatureData: any;
     try {
-      signatureData = await getTosSignature(client, fileInfo.fileName);
+      signatureData = await getImageTosSignature(client, fileInfo.fileName);
     } catch (error: any) {
       const detail = error.response ? `status=${error.response.status} data=${JSON.stringify(error.response.data)}` : error.message;
       return { success: false, error: `[Step 1: TOS signature failed] ${detail}` };
@@ -224,7 +271,7 @@ async function createTask(
 
     // Step 2: Upload to TOS
     try {
-      await uploadToTos(videoSource, signatureData);
+      await uploadToTos(imageSource, signatureData);
     } catch (error: any) {
       const detail = error.response
         ? `status=${error.response.status} statusText=${error.response.statusText} url=${signatureData.url?.substring(0, 80)}...`
@@ -234,19 +281,23 @@ async function createTask(
 
     // Step 3: Parse file_id
     const fileId = parseFileIdFromUrl(signatureData.url);
-    contentItem = { type: 'video_file', file_id: fileId, file_name: fileInfo.fileName };
+    contentItem = { type: 'image_file', file_id: fileId, file_name: fileInfo.fileName };
   } else {
-    contentItem = { type: 'video_url', video_url: { url: videoSource } };
+    contentItem = { type: 'image_url', image_url: { url: imageSource } };
   }
 
-  // Step 4: Call video API
-  const payload = { model: 'avc-enhance', content: [contentItem], resolution };
+  // Step 4: Call image API
+  const endpoint = getEndpointByTaskType(taskType);
+  const payload: any = { model: getModelByTaskType(taskType), content: [contentItem] };
+  if (scale !== undefined) {
+    payload.scale = scale;
+  }
   let response: any;
   try {
-    response = await client.post('/api/v3/contents/generations/tasks', payload);
+    response = await client.post(endpoint, payload);
   } catch (error: any) {
     const detail = error.response ? `status=${error.response.status} data=${JSON.stringify(error.response.data)}` : error.message;
-    return { success: false, error: `[Step 4: API call failed] ${detail}` };
+    return { success: false, error: `[Step 4: API call failed] endpoint=${endpoint} ${detail}` };
   }
   const data = response.data;
 
@@ -256,7 +307,7 @@ async function createTask(
   return { success: true, task_id: data.data.task_id, status: data.data.status };
 }
 
-async function getTaskStatus(client: AxiosInstance, taskId: string): Promise<any> {
+async function getImageTaskStatus(client: AxiosInstance, taskId: string): Promise<any> {
   const response = await client.get(`/api/v3/contents/generations/tasks/${taskId}`);
   const data = response.data;
 
@@ -270,9 +321,10 @@ async function getTaskStatus(client: AxiosInstance, taskId: string): Promise<any
     task_id: result.task_id,
     status: result.status,
     progress: result.progress || 0,
+    image_url: result.image_url,
     video_url: result.video_url,
-    debug_video_url_length: result.video_url?.length,
-    debug_video_url_full: result.video_url,
+    debug_image_url_length: result.image_url?.length,
+    debug_image_url_full: result.image_url,
     error_message: result.error_message,
     created_at: result.created_at,
     updated_at: result.updated_at,
@@ -280,15 +332,16 @@ async function getTaskStatus(client: AxiosInstance, taskId: string): Promise<any
   };
 }
 
-async function enhanceVideoSync(
+async function processImageSync(
   client: AxiosInstance,
-  videoSource: string,
+  imageSource: string,
   sourceType: string,
-  resolution: string,
+  taskType: string,
   pollInterval: number,
-  timeout: number
+  timeout: number,
+  scale?: number
 ): Promise<any> {
-  const createResult = await createTask(client, videoSource, sourceType, resolution);
+  const createResult = await createImageTask(client, imageSource, sourceType, taskType, scale);
   if (!createResult.success) {
     return createResult;
   }
@@ -296,7 +349,7 @@ async function enhanceVideoSync(
   const taskId = createResult.task_id;
   const startTime = Date.now();
   while (true) {
-    const status = await getTaskStatus(client, taskId);
+    const status = await getImageTaskStatus(client, taskId);
     if (!status.success) {
       return status;
     }
@@ -309,8 +362,8 @@ async function enhanceVideoSync(
         success: true,
         status: 'processing',
         task_id: taskId,
-        message: `Task is still processing (waited ${timeout} seconds). Please use get_task_status to continue polling.`,
-        note: 'The synchronous wait for this long-running task has been truncated. Switch to get_task_status polling.',
+        message: `Task is still processing (waited ${timeout} seconds). Please use get_image_task_status to continue polling.`,
+        note: 'The synchronous wait for this long-running task has been truncated. Switch to get_image_task_status polling.',
       };
     }
     await sleep(pollInterval * 1000);

@@ -6,7 +6,7 @@
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-基于 MCP 协议的视频增强与图像分割服务，作为 MCP Client-Server 与后端 HTTP Server 交互。
+基于 MCP 协议的视频增强、图片增强/上色/降噪与图像分割服务，作为 MCP Client-Server 与后端 HTTP Server 交互。
 
 ## 功能
 
@@ -17,8 +17,15 @@
 - `get_task_status` - 查询任务状态
 - `enhance_video_sync` - 同步增强视频（阻塞等待，默认50秒截断）
 
+**图片增强**
+- `enhance_image_sync` - 图片画质增强与人脸优化（支持 URL 或本地文件上传）
+- `colorize_image_sync` - 黑白照片上色（支持 URL 或本地文件上传）
+- `denoise_image_sync` - 图片降噪去噪（支持 URL 或本地文件上传）
+- `get_image_task_status` - 查询图片任务状态（同步工具超时后用于轮询）
+
 **图像分割 (SAM3)**
 - `sam3_predict` - SAM3 图像分割（支持本地路径、URL 或 Base64 图片）
+- `get_sam3_task_status` - 查询 SAM3 任务状态（同步工具超时后用于轮询）
 
 ## 前置要求
 
@@ -109,7 +116,7 @@ AI 会自动完成：
 重启客户端后，确认工具是否加载成功：
 
 1. 或直接问 AI："你有哪些可用的工具？"
-2. 应看到：`create_task`、`get_task_status`、`enhance_video_sync`、`sam3_predict`
+2. 应看到：`create_task`、`get_task_status`、`enhance_video_sync`、`enhance_image_sync`、`colorize_image_sync`、`denoise_image_sync`、`get_image_task_status`、`sam3_predict`、`get_sam3_task_status`
 
 ## 配置项
 
@@ -174,6 +181,12 @@ npx -y @avclabs.ai/media-mcp@latest --base-url https://your-endpoint.com --api-k
 > "帮我把这个视频增强到 1080p：https://example.com/video.mp4"
 
 > "把我桌面的 video.mp4 提升到 2k 画质"
+
+> "帮我把这张图片画质增强一下：https://example.com/photo.jpg"
+
+> "帮我把这张黑白照片上色：/Users/me/Desktop/old_photo.png"
+
+> "帮我把这张图片降噪去噪：C:\\Users\\xxx\\noisy.jpg"
 
 > "帮我分析这张图片，找出里面的所有物体：C:\\Users\\xxx\\photo.png"
 
@@ -255,6 +268,120 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 }
 ```
 
+### 图片增强
+
+提供三个图片处理工具，分别针对不同场景：
+
+| 工具 | 功能 | 适用场景 |
+|---|---|---|
+| `enhance_image_sync` | 图片画质增强与人脸优化 | 模糊、低分辨率或画质下降的照片 |
+| `colorize_image_sync` | 黑白照片上色 | 为老旧黑白照片恢复真实色彩 |
+| `denoise_image_sync` | 图片降噪去噪 | 弱光环境下拍摄的噪点/颗粒感照片 |
+
+三个工具的参数和行为模式相同，均为**同步**调用——工具会阻塞直到图片处理完成或超时。
+
+**支持的图片格式**：PNG、JPG、JPEG、BMP、WebP 等。
+
+**两种上传方式**：
+1. **URL 上传**：提供公开可访问的图片 URL（`type: "url"`）
+2. **本地上传**：提供本地文件路径，MCP Server 自动上传到 TOS 对象存储（`type: "local"`，最大 100MB）
+
+#### enhance_image_sync
+
+同步增强图片画质并优化人脸。
+
+> 工具内部会创建任务并轮询结果。如果在超时时间内（默认 50 秒）处理完成，直接返回结果；否则提前返回 `task_id`，需用 `get_image_task_status` 继续轮询。
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|---|---|---|---|---|
+| `image_source` | string | 是 | - | 图片 URL 或本地文件路径（URL 必须公网可访问，不支持需要登录或签名的链接） |
+| `type` | string | 否 | `url` | `url` 或 `local` |
+| `scale` | number | 否 | `2` | 增强倍数（如 `2` 为 2 倍、`4` 为 4 倍放大） |
+| `poll_interval` | number | 否 | `5` | 轮询间隔（秒） |
+| `timeout` | number | 否 | `50` | 同步等待超时时间（秒），超过后主动返回 |
+
+**正常完成返回：**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "completed",
+  "progress": 100,
+  "image_url": "https://..."
+}
+```
+
+**截断返回（50秒未完成）：**
+```json
+{
+  "success": true,
+  "status": "processing",
+  "task_id": "xxx",
+  "message": "Task is still processing (waited 50 seconds). Please use get_image_task_status to continue polling.",
+  "note": "The synchronous wait for this long-running task has been truncated. Switch to get_image_task_status polling."
+}
+```
+
+#### colorize_image_sync
+
+同步为黑白照片 AI 上色。
+
+> 适合老旧黑白照片，AI 会为图片添加真实色彩。参数与返回格式与 `enhance_image_sync` 相同。
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|---|---|---|---|---|
+| `image_source` | string | 是 | - | 图片 URL 或本地文件路径（URL 必须公网可访问，不支持需要登录或签名的链接） |
+| `type` | string | 否 | `url` | `url` 或 `local` |
+| `poll_interval` | number | 否 | `5` | 轮询间隔（秒） |
+| `timeout` | number | 否 | `50` | 同步等待超时时间（秒），超过后主动返回 |
+
+**返回值：** 与 `enhance_image_sync` 相同。
+
+#### denoise_image_sync
+
+同步为图片降噪去噪。
+
+> 适合弱光环境或高 ISO 拍摄的噪点/颗粒感照片。参数与返回格式与 `enhance_image_sync` 相同。
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|---|---|---|---|---|
+| `image_source` | string | 是 | - | 图片 URL 或本地文件路径（URL 必须公网可访问，不支持需要登录或签名的链接） |
+| `type` | string | 否 | `url` | `url` 或 `local` |
+| `poll_interval` | number | 否 | `5` | 轮询间隔（秒） |
+| `timeout` | number | 否 | `50` | 同步等待超时时间（秒），超过后主动返回 |
+
+**返回值：** 与 `enhance_image_sync` 相同。
+
+#### get_image_task_status
+
+查询图片处理任务状态。当同步工具超时后，用此工具轮询结果。
+
+> 返回值中的 `status` 字段可能为：`processing`（处理中）、`completed`（已完成）、`failed`（失败）。如果 `status` 为 `processing`，等待几秒后再次调用此工具。
+
+| 参数 | 类型 | 必填 |
+|---|---|---|
+| `task_id` | string | 是 |
+
+**返回值：**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "completed",
+  "progress": 100,
+  "image_url": "https://...",
+  "message": "Task is still processing, please check again later"
+}
+```
+
+其中 `message` 字段只在 `status` 为 `processing` 时出现，提示 Agent 继续等待。
+
+#### 图片工具推荐工作流
+
+1. **大多数图片**：直接调用 `enhance_image_sync` / `colorize_image_sync` / `denoise_image_sync`，工具会完成全部流程并返回结果
+2. **如果被截断**：工具返回 `task_id`，然后用 `get_image_task_status` 轮询，直到 `status` 变为 `completed` 或 `failed`
+3. **如果失败**：查看 `error_message` 字段了解详情
+
 ### 图像分割 (SAM3)
 
 #### sam3_predict
@@ -317,6 +444,46 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
   "task_id": "xxx",
   "message": "Task is still processing (waited about 50 seconds). Please retry later or record this task_id for manual follow-up.",
   "note": "The synchronous wait for this long-running task has been truncated."
+}
+```
+
+#### get_sam3_task_status
+
+查询 SAM3 分割任务状态。当 `sam3_predict` 超时后，用此工具轮询结果。
+
+> 返回值中的 `status` 字段可能为：`processing`（处理中）、`completed`（已完成）、`failed`（失败）。如果 `status` 为 `processing`，等待几秒后再次调用此工具。
+
+| 参数 | 类型 | 必填 |
+|---|---|---|
+| `task_id` | string | 是 |
+
+**已完成返回：**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "completed",
+  "result_url": "https://..."
+}
+```
+
+**处理中返回：**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "processing",
+  "message": "Task is still processing, please check again later."
+}
+```
+
+**失败返回：**
+```json
+{
+  "success": false,
+  "task_id": "xxx",
+  "status": "failed",
+  "error": "Task failed"
 }
 ```
 
