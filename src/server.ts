@@ -11,11 +11,12 @@ import { fileURLToPath } from 'url';
 import { setupVideoEnhancementTools } from './video-enhancement.js';
 import { setupImageEnhancementTools } from './image-enhancement.js';
 import { setupSam3Tools } from './sam3.js';
+import { resolveImageBaseUrl } from './service-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function loadConfig(): { baseUrl: string; sam3BaseUrl: string } {
+function loadConfig(): { baseUrl: string; imageBaseUrl?: string; sam3BaseUrl: string } {
   const configPaths = [
     path.resolve(process.cwd(), 'config.json'),
     path.resolve(__dirname, '..', 'config.json'),
@@ -26,6 +27,7 @@ function loadConfig(): { baseUrl: string; sam3BaseUrl: string } {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
         return {
           baseUrl: config.baseUrl || 'https://mcp.avc.ai/enhance',
+          imageBaseUrl: config.imageBaseUrl || undefined,
           sam3BaseUrl: config.sam3BaseUrl || 'https://mcp.avc.ai/sam',
         };
       } catch {
@@ -41,6 +43,7 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const config = loadConfig();
   let baseUrl = process.env.HTTP_API_BASE_URL || config.baseUrl;
+  let imageBaseUrl = process.env.IMAGE_API_BASE_URL || config.imageBaseUrl;
   let apiKey = process.env.API_KEY || '';
   let sam3BaseUrl = process.env.SAM3_API_BASE_URL || config.sam3BaseUrl;
   let sam3ApiKey = apiKey;
@@ -51,6 +54,9 @@ async function main(): Promise<void> {
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--base-url' && i + 1 < args.length) {
       baseUrl = args[i + 1];
+      i++;
+    } else if (args[i] === '--image-base-url' && i + 1 < args.length) {
+      imageBaseUrl = args[i + 1];
       i++;
     } else if (args[i] === '--api-key' && i + 1 < args.length) {
       apiKey = args[i + 1];
@@ -88,7 +94,7 @@ async function main(): Promise<void> {
   setupVideoEnhancementTools(server, baseUrl, apiKey);
 
   // Register image enhancement tools
-  setupImageEnhancementTools(server, baseUrl, apiKey);
+  setupImageEnhancementTools(server, resolveImageBaseUrl(imageBaseUrl, baseUrl), apiKey);
 
   // Register SAM3 tools
   setupSam3Tools(server, sam3BaseUrl, sam3ApiKey, sam3PollInterval, sam3PollMaxAttempts);

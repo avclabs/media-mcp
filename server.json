@@ -17,11 +17,32 @@
       },
       "environmentVariables": [
         {
-          "description": "API Key for video enhancement and SAM3 services",
+          "description": "API Key for video, image, and SAM3 services",
           "isRequired": true,
           "format": "string",
           "isSecret": true,
           "name": "API_KEY"
+        },
+        {
+          "description": "Video and account API base URL",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "HTTP_API_BASE_URL"
+        },
+        {
+          "description": "Image API base URL; falls back to HTTP_API_BASE_URL when omitted",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "IMAGE_API_BASE_URL"
+        },
+        {
+          "description": "SAM3 API base URL",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "SAM3_API_BASE_URL"
         }
       ]
     }

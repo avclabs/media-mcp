@@ -1,4 +1,5 @@
 {
   "baseUrl": "https://mcp.avc.ai/enhance",
+  "imageBaseUrl": null,
   "sam3BaseUrl": "https://mcp.avc.ai/sam"
 }

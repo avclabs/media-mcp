@@ -122,8 +122,9 @@ After restarting your client, check if the tools are available:
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `API_KEY` | **Yes** | - | API authentication key (shared by video enhancement and SAM3) |
+| `API_KEY` | **Yes** | - | API authentication key (shared by video, image, and SAM3 services) |
 | `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Video enhancement service endpoint |
+| `IMAGE_API_BASE_URL` | No | Same as `HTTP_API_BASE_URL` | Image enhancement/colorization/denoising endpoint |
 | `SAM3_API_BASE_URL` | No | `https://mcp.avc.ai/sam` | SAM3 service endpoint |
 | `SAM3_POLL_INTERVAL` | No | `2000` | SAM3 polling interval (milliseconds) |
 | `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | SAM3 maximum polling attempts |
@@ -133,7 +134,8 @@ After restarting your client, check if the tools are available:
 ```json
 {
   "env": {
-    "HTTP_API_BASE_URL": "https://your-endpoint.com",
+    "HTTP_API_BASE_URL": "https://your-video-endpoint.com",
+    "IMAGE_API_BASE_URL": "https://your-image-endpoint.com",
     "API_KEY": "your-api-key",
     "SAM3_API_BASE_URL": "https://your-sam3-endpoint.com"
   }
@@ -142,7 +144,7 @@ After restarting your client, check if the tools are available:
 
 Or via CLI args:
 ```bash
-npx -y @avclabs.ai/media-mcp@latest --base-url https://your-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
+npx -y @avclabs.ai/media-mcp@latest --base-url https://your-video-endpoint.com --image-base-url https://your-image-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
 
 ## Recommended Workflow
@@ -569,7 +571,7 @@ Check logs:
 
 ### "TOS upload failed"
 
-Usually a signature mismatch. Ensure your `HTTP_API_BASE_URL` and `API_KEY` are correct and active.
+Usually a signature mismatch. Ensure your `IMAGE_API_BASE_URL` (or its `HTTP_API_BASE_URL` fallback) and `API_KEY` are correct and active.
 
 ## Global Install (Alternative)
 

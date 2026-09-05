@@ -122,8 +122,9 @@ AI 会自动完成：
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
-| `API_KEY` | **是** | - | API 认证密钥（视频增强和 SAM3 共用） |
+| `API_KEY` | **是** | - | API 认证密钥（视频、图片和 SAM3 服务共用） |
 | `HTTP_API_BASE_URL` | 否 | `https://mcp.avc.ai/enhance` | 视频增强服务接口地址 |
+| `IMAGE_API_BASE_URL` | 否 | 与 `HTTP_API_BASE_URL` 相同 | 图片增强/上色/降噪服务接口地址 |
 | `SAM3_API_BASE_URL` | 否 | `https://mcp.avc.ai/sam` | SAM3 服务接口地址 |
 | `SAM3_POLL_INTERVAL` | 否 | `2000` | SAM3 轮询间隔（毫秒） |
 | `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | SAM3 最大轮询次数 |
@@ -133,7 +134,8 @@ AI 会自动完成：
 ```json
 {
   "env": {
-    "HTTP_API_BASE_URL": "https://your-endpoint.com",
+    "HTTP_API_BASE_URL": "https://your-video-endpoint.com",
+    "IMAGE_API_BASE_URL": "https://your-image-endpoint.com",
     "API_KEY": "your-api-key",
     "SAM3_API_BASE_URL": "https://your-sam3-endpoint.com"
   }
@@ -142,7 +144,7 @@ AI 会自动完成：
 
 或通过命令行参数：
 ```bash
-npx -y @avclabs.ai/media-mcp@latest --base-url https://your-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
+npx -y @avclabs.ai/media-mcp@latest --base-url https://your-video-endpoint.com --image-base-url https://your-image-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
 
 ## 推荐的工作流程
@@ -569,7 +571,7 @@ API Key 缺失，请检查配置中的 `env.API_KEY`。
 
 ### "TOS 上传失败"
 
-通常是签名不匹配，请确认 `HTTP_API_BASE_URL` 和 `API_KEY` 正确且有效。
+通常是签名不匹配，请确认 `IMAGE_API_BASE_URL`（未配置时回落到 `HTTP_API_BASE_URL`）和 `API_KEY` 正确且有效。
 
 ## 全局安装（可选）
 
