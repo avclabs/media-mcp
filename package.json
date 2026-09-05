@@ -18,9 +18,11 @@
   ],
   "scripts": {
     "build": "tsc",
+    "check:release": "node scripts/check-release.mjs",
     "dev": "tsc --watch",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "release:verify": "npm run check:release && npm audit --omit=dev --audit-level=high && npm run build && npm pack --dry-run"
   },
   "keywords": [
     "mcp",
@@ -36,7 +38,6 @@
     "claude",
     "anthropic"
   ],
-  "author": "Your Name <your.email@example.com>",
   "license": "MIT",
   "repository": {
     "type": "git",

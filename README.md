@@ -581,6 +581,17 @@ npm install -g @avclabs.ai/media-mcp
 
 Then use `"command": "media-mcp"` with `"args": ["--api-key", "your-api-key"]` in your config.
 
+## Development and Release
+
+This package runs locally in the MCP client and is released through npm; it is not a remote Node daemon. The sibling `media-mcp-api-http-server` currently provides the video/account backend only, while image enhancement and SAM3 remain separate production dependencies. Before publishing, run:
+
+```bash
+npm ci
+npm run release:verify
+```
+
+See the [release guide](https://github.com/avclabs/media-mcp/blob/main/docs/RELEASE.md) for version synchronization, publish order, smoke tests, and the relationship with the portal/backend deployment.
+
 ## License
 
 MIT License - See [LICENSE](LICENSE) file for details

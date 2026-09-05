@@ -581,6 +581,17 @@ npm install -g @avclabs.ai/media-mcp
 
 然后在配置中使用 `"command": "media-mcp"` 配合 `"args": ["--api-key", "your-api-key"]` 。
 
+## 开发与发布
+
+本包运行在 MCP 客户端本机，并通过 npm 发布；它不是部署到远程服务器的 Node 常驻进程。同级 `media-mcp-api-http-server` 当前只提供视频/账户后端，图片增强与 SAM3 仍是独立生产依赖。发布前运行：
+
+```bash
+npm ci
+npm run release:verify
+```
+
+版本同步、发布顺序、冒烟测试以及与门户/后端部署的关系见[发布指南](https://github.com/avclabs/media-mcp/blob/main/docs/RELEASE.md)。
+
 ## License
 
 MIT License - 详见 [LICENSE](LICENSE) 文件

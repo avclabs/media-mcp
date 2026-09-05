@@ -14,4 +14,5 @@ MCP_REGISTRY_PUBLISH_GUIDE.md
 mcp-publisher.exe
 test
 task_plan/
-scripts/
+scripts/*
+!scripts/check-release.mjs
