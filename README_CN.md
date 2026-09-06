@@ -8,7 +8,7 @@
 
 基于 MCP 协议的视频增强、图片增强/上色/降噪与图像分割服务，作为 MCP Client-Server 与后端 HTTP Server 交互。
 
-> **发布状态（2026-09-06）**：npm `latest` 为 `0.2.1`；该已发布包只有 5 个工具（视频 3 + SAM3 2），且运行时 metadata 错误地报告为 `0.3.0`。当前仓库是尚未发布的 `0.3.0` 候选，已修正版本一致性并新增图片 4 工具与可选的 `IMAGE_API_BASE_URL` 覆盖。图片和视频共用生产 HTTP Server 及 `/enhance` 基址。在该服务补齐图片路由、9 工具冒烟全部通过且 `0.3.0` 正式发布前，下列图片工具不是生产 npm 能力。
+> **发布状态（2026-09-06）**：npm `latest` 为 `0.2.1`；该已发布包只有 5 个工具（视频 3 + SAM3 2），且运行时 metadata 错误地报告为 `0.3.0`。当前仓库是尚未发布的 `0.3.0` 候选，已修正版本一致性并新增图片 4 工具与可选的 `IMAGE_API_BASE_URL` 覆盖。图片和视频共用公共 HTTP Server 及 `/enhance` 基址；候选后端内部的准备并发、Redis 队列、worker 和处理并发保持分离。图片路由已存在于候选代码，但尚未部署和通过真实 AI/TOS 验证；在 9 工具冒烟全部通过且 `0.3.0` 正式发布前，下列图片工具不是生产 npm 能力。
 
 ## 功能
 
@@ -591,7 +591,7 @@ npm install -g @avclabs.ai/media-mcp
 
 ## 开发与发布
 
-本包运行在 MCP 客户端本机，并通过 npm 发布；它不是部署到远程服务器的 Node 常驻进程。同级 `media-mcp-api-http-server` 已作为共享 `/enhance` 视频/图片/账户后端上线，但当前 release 只实现视频路由；Portal 也已上线，SAM3 仍是外部生产依赖。9 工具候选所需的共享后端图片路由和 SAM3 JSON health 尚未就绪，因此现在不得发布 `0.3.0`。发布前运行：
+本包运行在 MCP 客户端本机，并通过 npm 发布；它不是部署到远程服务器的 Node 常驻进程。同级 `media-mcp-api-http-server` 已作为共享 `/enhance` 视频/图片/账户 owner 上线，但当前生产 release 只实现视频路由；候选代码已增加图片路由、持久化 prepare/dispatch outbox、任务级积分幂等和图片/视频独立队列。Portal 也已上线，SAM3 仍是外部生产依赖。真实图片 AI/TOS E2E、候选后端生产发布和 SAM3 JSON health 尚未完成，因此现在不得发布 `0.3.0`。发布前运行：
 
 ```bash
 npm ci

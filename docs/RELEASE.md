@@ -6,7 +6,7 @@
 
 - npm registry `latest=0.2.1`；发布包包含视频 3 + SAM3 2 个工具，没有图片工具。该包的运行时 metadata 错误报告 `0.3.0`，但 npm/lock 版本为 `0.2.1`。
 - 当前仓库版本 `0.3.0` 尚未发布，已修正版本一致性并新增图片 4 工具、`IMAGE_API_BASE_URL` 和发布门禁。
-- 生产 `/enhance` API 与 Portal 已上线；共享 FastAPI 当前尚未实现图片路由，`/sam/health` 尚未提供门禁要求的 JSON health，因此不能发布 9 工具 `0.3.0`。
+- 生产 `/enhance` API 与 Portal 已上线；共享 FastAPI 的候选代码已实现图片路由、图片/视频独立队列、双 outbox 和积分幂等，但尚未发布或通过真实图片 AI/TOS E2E，`/sam/health` 也尚未提供门禁要求的 JSON health，因此不能发布 9 工具 `0.3.0`。
 - Portal 仓库的 API/组合脚本还要求 compatibility health。npm `0.2.1` 不产生图片请求，所以该要求不是 npm 存量兼容义务；删除前仍需盘点 GitHub release、私有 tarball 和 MCP 目录等非 npm 分发渠道。
 
 ## 发布前置条件
@@ -52,11 +52,11 @@ npx -y @avclabs.ai/media-mcp@<version> --api-key <temporary-key>
 ## 与门户/后端的发布顺序
 
 1. 保持已经上线的 `/enhance` API 和 Portal，通过 `0.2.1` 验证视频与 SAM3 存量契约。
-2. 在同一 FastAPI/JobServer 补齐图片创建、状态、`image_url` 与图片能力 health，并为外部 SAM3 增加 JSON health；若非 npm 渠道确有旧候选客户端，再部署 compatibility adapter。
+2. 在隔离环境验证同一 FastAPI/JobServer 已完成的图片创建、状态、`image_url`、图片能力 health、双 outbox 和图片/视频独立处理链；为外部 SAM3 增加 JSON health。若非 npm 渠道确有旧候选客户端，再部署 compatibility adapter。
 3. 保持候选 `0.3.0` 的生产默认 `IMAGE_API_BASE_URL` 未设置，通过共享 `/enhance` 验证 health、鉴权、TOS 签名及视频/图片/SAM3 各一项低成本任务。
 4. 完成 API/组合一键发布与回滚演练，复核 Portal 的注册、登录、API Key 和文档。
 5. 最后发布 `media-mcp@0.3.0`，避免新客户端命中尚未上线的图片接口。
 
-当前 `media-mcp-api-http-server` 只实现视频/TOS REST 路由及 4 个可选远程 MCP 工具，不实现候选 npm 包所需的图片路由与 SAM3。它已经作为 `/enhance` 的视频/图片/账户 owner 上线；图片路由必须在同一 FastAPI/JobServer 内补齐，客户端继续依赖 `IMAGE_API_BASE_URL` 对 `HTTP_API_BASE_URL` 的回落行为。
+当前生产 `media-mcp-api-http-server` release 只提供视频/TOS REST 路由及 4 个可选远程 MCP 工具；候选代码已在同一 FastAPI/JobServer 内实现图片路由，并以独立图片/视频队列处理。SAM3 仍由外部 `/sam` owner 提供。客户端继续依赖 `IMAGE_API_BASE_URL` 对 `HTTP_API_BASE_URL` 的回落行为，候选后端通过真实 E2E 并发布前不得发布 npm `0.3.0`。
 
 后端 + 门户编排、密钥门禁、Nginx/systemd 模板和双回滚步骤位于同级仓库 `mcp-portal-web/docs/PRODUCTION-DEPLOYMENT.md`。

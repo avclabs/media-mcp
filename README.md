@@ -8,7 +8,7 @@ English | [中文](https://github.com/avclabs/media-mcp/blob/main/README_CN.md)
 
 A video enhancement, image enhancement/colorization/denoising, and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with backend HTTP Servers.
 
-> **Release status (2026-09-06):** npm `latest` is `0.2.1`; that published artifact contains 5 tools (3 video + 2 SAM3) and its runtime metadata incorrectly reports `0.3.0`. This repository is the unreleased `0.3.0` candidate, which fixes version consistency and adds 4 image tools plus an optional `IMAGE_API_BASE_URL` override. Image and video share the same production HTTP server and `/enhance` base URL. The image tools below are not a production npm capability until that server implements the image routes, all 9 tools pass smoke tests, and `0.3.0` is published.
+> **Release status (2026-09-06):** npm `latest` is `0.2.1`; that published artifact contains 5 tools (3 video + 2 SAM3) and its runtime metadata incorrectly reports `0.3.0`. This repository is the unreleased `0.3.0` candidate, which fixes version consistency and adds 4 image tools plus an optional `IMAGE_API_BASE_URL` override. Image and video share the same public HTTP server and `/enhance` base URL; the candidate backend keeps their prepare concurrency, Redis queues, workers, and processing concurrency separate. The image routes now exist in candidate code but are not deployed or real-AI/TOS verified, so the image tools below are not a production npm capability until all 9 tools pass smoke tests and `0.3.0` is published.
 
 ## Features
 
@@ -591,7 +591,7 @@ Then use `"command": "media-mcp"` with `"args": ["--api-key", "your-api-key"]` i
 
 ## Development and Release
 
-This package runs locally in the MCP client and is released through npm; it is not a remote Node daemon. The sibling `media-mcp-api-http-server` is live as the shared `/enhance` video/image/account backend, although the current release only implements video routes; the Portal is also live and SAM3 remains an external production dependency. The shared backend's image routes and SAM3 JSON health required by the 9-tool candidate are not ready, so `0.3.0` must not be published yet. Before publishing, run:
+This package runs locally in the MCP client and is released through npm; it is not a remote Node daemon. The sibling `media-mcp-api-http-server` is live as the shared `/enhance` video/image/account owner, although its current production release only implements video routes; candidate code adds the image routes, durable prepare/dispatch outboxes, task-level credit idempotency, and separate image/video queues. The Portal is live and SAM3 remains an external production dependency. Real image AI/TOS E2E, production backend rollout, and SAM3 JSON health are still pending, so `0.3.0` must not be published yet. Before publishing, run:
 
 ```bash
 npm ci
