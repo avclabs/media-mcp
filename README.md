@@ -1,5 +1,7 @@
 # media-mcp (Node.js)
 
+> Deployment update (2026-09-06): the SAM3 source and release scripts are now maintained in `sam3-http-server`, rooted at `/opt/ai/sam3`. API schema candidate head is `20260906_0007`. SAM3 production bootstrap and nine-tool E2E remain pending. See the [four-project rollout](https://github.com/avclabs/mcp-portal-web/blob/main/docs/FOUR-PROJECT-ROLLOUT.md).
+
 English | [中文](https://github.com/avclabs/media-mcp/blob/main/README_CN.md)
 
 [![npm version](https://img.shields.io/npm/v/@avclabs.ai/media-mcp)](https://www.npmjs.com/package/@avclabs.ai/media-mcp)

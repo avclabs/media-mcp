@@ -1,5 +1,10 @@
 # 发布说明
 
+2026-09-06 补充：SAM3 源码与发布脚本已纳入独立仓库，固定部署于 `/opt/ai/sam3`；
+API 候选 schema head 为 `20260906_0007`。SAM3 首次 bootstrap、真实任务及九工具
+联调尚待完成，npm 0.3.0 继续保持候选。执行顺序见
+[四项目发布清单](https://github.com/avclabs/mcp-portal-web/blob/main/docs/FOUR-PROJECT-ROLLOUT.md)。
+
 `media-mcp` 是 stdio MCP server：它运行在用户的 Claude、Cursor 等客户端机器上，通过 HTTPS 调用 `mcp.avc.ai/enhance` 和 `mcp.avc.ai/sam`。生产交付物是 npm 包，不是部署到 Web 服务器的 Node 常驻进程。
 
 ## 当前状态（2026-09-06）
