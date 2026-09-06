@@ -8,7 +8,7 @@ English | [中文](https://github.com/avclabs/media-mcp/blob/main/README_CN.md)
 
 A video enhancement, image enhancement/colorization/denoising, and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with backend HTTP Servers.
 
-> **Release status (2026-09-06):** npm `latest` is `0.2.1`; that published artifact contains 5 tools (3 video + 2 SAM3) and its runtime metadata incorrectly reports `0.3.0`. This repository is the unreleased `0.3.0` candidate, which fixes version consistency and adds 4 image tools plus `IMAGE_API_BASE_URL`. The image tools below are not a production npm capability until `/image` is deployed, all 9 tools pass smoke tests, and `0.3.0` is published.
+> **Release status (2026-09-06):** npm `latest` is `0.2.1`; that published artifact contains 5 tools (3 video + 2 SAM3) and its runtime metadata incorrectly reports `0.3.0`. This repository is the unreleased `0.3.0` candidate, which fixes version consistency and adds 4 image tools plus an optional `IMAGE_API_BASE_URL` override. Image and video share the same production HTTP server and `/enhance` base URL. The image tools below are not a production npm capability until that server implements the image routes, all 9 tools pass smoke tests, and `0.3.0` is published.
 
 ## Features
 
@@ -126,21 +126,20 @@ After restarting your client, check if the tools are available:
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `API_KEY` | **Yes** | - | API authentication key (shared by video, image, and SAM3 services) |
-| `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Video enhancement service endpoint |
-| `IMAGE_API_BASE_URL` | No | Same as `HTTP_API_BASE_URL` | Image enhancement/colorization/denoising endpoint |
+| `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Shared video and image HTTP service endpoint |
+| `IMAGE_API_BASE_URL` | No | Same as `HTTP_API_BASE_URL` | Optional image endpoint override; omit for the shared production server |
 | `SAM3_API_BASE_URL` | No | `https://mcp.avc.ai/sam` | SAM3 service endpoint |
 | `SAM3_POLL_INTERVAL` | No | `2000` | SAM3 polling interval (milliseconds) |
 | `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | SAM3 maximum polling attempts |
 
-`IMAGE_API_BASE_URL` is implemented by the unreleased `0.3.0` candidate. Do not point it at the video-only `/enhance` service; production `0.3.0` must use the independently deployed `/image` endpoint.
+`IMAGE_API_BASE_URL` is implemented by the unreleased `0.3.0` candidate as an optional override. Production uses the shared `/enhance` service, so it should normally be omitted; the candidate then resolves image and video calls to the same base URL.
 
 ### Custom Endpoint (0.3.0 candidate)
 
 ```json
 {
   "env": {
-    "HTTP_API_BASE_URL": "https://your-video-endpoint.com",
-    "IMAGE_API_BASE_URL": "https://your-image-endpoint.com",
+    "HTTP_API_BASE_URL": "https://your-media-endpoint.com",
     "API_KEY": "your-api-key",
     "SAM3_API_BASE_URL": "https://your-sam3-endpoint.com"
   }
@@ -149,10 +148,10 @@ After restarting your client, check if the tools are available:
 
 Or via CLI args:
 ```bash
-npx -y @avclabs.ai/media-mcp@0.3.0 --base-url https://your-video-endpoint.com --image-base-url https://your-image-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
+npx -y @avclabs.ai/media-mcp@0.3.0 --base-url https://your-media-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
 
-Run this command only after `0.3.0` is published; npm `0.2.1` does not support `--image-base-url`.
+Run this command only after `0.3.0` is published. The optional `--image-base-url` remains available only for deployments that intentionally split the public image endpoint; npm `0.2.1` does not support it.
 
 ## Recommended Workflow
 
@@ -592,7 +591,7 @@ Then use `"command": "media-mcp"` with `"args": ["--api-key", "your-api-key"]` i
 
 ## Development and Release
 
-This package runs locally in the MCP client and is released through npm; it is not a remote Node daemon. The sibling `media-mcp-api-http-server` is live as the `/enhance` video/account backend, and the Portal is live; image enhancement and SAM3 remain separate production dependencies. The `/image` route and SAM3 JSON health required by the 9-tool candidate are not ready, so `0.3.0` must not be published yet. Before publishing, run:
+This package runs locally in the MCP client and is released through npm; it is not a remote Node daemon. The sibling `media-mcp-api-http-server` is live as the shared `/enhance` video/image/account backend, although the current release only implements video routes; the Portal is also live and SAM3 remains an external production dependency. The shared backend's image routes and SAM3 JSON health required by the 9-tool candidate are not ready, so `0.3.0` must not be published yet. Before publishing, run:
 
 ```bash
 npm ci
