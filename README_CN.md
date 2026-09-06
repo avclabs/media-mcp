@@ -8,6 +8,8 @@
 
 基于 MCP 协议的视频增强、图片增强/上色/降噪与图像分割服务，作为 MCP Client-Server 与后端 HTTP Server 交互。
 
+> **发布状态（2026-09-06）**：npm `latest` 为 `0.2.1`；该已发布包只有 5 个工具（视频 3 + SAM3 2），且运行时 metadata 错误地报告为 `0.3.0`。当前仓库是尚未发布的 `0.3.0` 候选，已修正版本一致性并新增图片 4 工具与 `IMAGE_API_BASE_URL`。在 `/image` 部署、9 工具冒烟全部通过且 `0.3.0` 正式发布前，下列图片工具不是生产 npm 能力。
+
 ## 功能
 
 提供以下 MCP Tools：
@@ -17,7 +19,7 @@
 - `get_task_status` - 查询任务状态
 - `enhance_video_sync` - 同步增强视频（阻塞等待，默认50秒截断）
 
-**图片增强**
+**图片增强（尚未发布的 0.3.0 候选）**
 - `enhance_image_sync` - 图片画质增强与人脸优化（支持 URL 或本地文件上传）
 - `colorize_image_sync` - 黑白照片上色（支持 URL 或本地文件上传）
 - `denoise_image_sync` - 图片降噪去噪（支持 URL 或本地文件上传）
@@ -116,7 +118,8 @@ AI 会自动完成：
 重启客户端后，确认工具是否加载成功：
 
 1. 或直接问 AI："你有哪些可用的工具？"
-2. 应看到：`create_task`、`get_task_status`、`enhance_video_sync`、`enhance_image_sync`、`colorize_image_sync`、`denoise_image_sync`、`get_image_task_status`、`sam3_predict`、`get_sam3_task_status`
+2. 当前 npm `latest=0.2.1` 应看到 `create_task`、`get_task_status`、`enhance_video_sync`、`sam3_predict`、`get_sam3_task_status`。
+3. `0.3.0` 发布后还应看到 `enhance_image_sync`、`colorize_image_sync`、`denoise_image_sync`、`get_image_task_status`。
 
 ## 配置项
 
@@ -129,7 +132,9 @@ AI 会自动完成：
 | `SAM3_POLL_INTERVAL` | 否 | `2000` | SAM3 轮询间隔（毫秒） |
 | `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | SAM3 最大轮询次数 |
 
-### 自定义服务地址
+`IMAGE_API_BASE_URL` 由尚未发布的 `0.3.0` 候选实现。不要把它指向仅提供视频能力的 `/enhance`；生产 `0.3.0` 必须使用独立部署的 `/image` 端点。
+
+### 自定义服务地址（0.3.0 候选）
 
 ```json
 {
@@ -144,8 +149,10 @@ AI 会自动完成：
 
 或通过命令行参数：
 ```bash
-npx -y @avclabs.ai/media-mcp@latest --base-url https://your-video-endpoint.com --image-base-url https://your-image-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
+npx -y @avclabs.ai/media-mcp@0.3.0 --base-url https://your-video-endpoint.com --image-base-url https://your-image-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
+
+仅在 `0.3.0` 发布后执行该命令；npm `0.2.1` 不支持 `--image-base-url`。
 
 ## 推荐的工作流程
 
@@ -585,7 +592,7 @@ npm install -g @avclabs.ai/media-mcp
 
 ## 开发与发布
 
-本包运行在 MCP 客户端本机，并通过 npm 发布；它不是部署到远程服务器的 Node 常驻进程。同级 `media-mcp-api-http-server` 当前只提供视频/账户后端，图片增强与 SAM3 仍是独立生产依赖。发布前运行：
+本包运行在 MCP 客户端本机，并通过 npm 发布；它不是部署到远程服务器的 Node 常驻进程。同级 `media-mcp-api-http-server` 已作为 `/enhance` 视频/账户后端上线，Portal 也已上线；图片增强与 SAM3 仍是独立生产依赖。9 工具候选所需的 `/image` 路由和 SAM3 JSON health 尚未就绪，因此现在不得发布 `0.3.0`。发布前运行：
 
 ```bash
 npm ci

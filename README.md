@@ -8,6 +8,8 @@ English | [中文](https://github.com/avclabs/media-mcp/blob/main/README_CN.md)
 
 A video enhancement, image enhancement/colorization/denoising, and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with backend HTTP Servers.
 
+> **Release status (2026-09-06):** npm `latest` is `0.2.1`; that published artifact contains 5 tools (3 video + 2 SAM3) and its runtime metadata incorrectly reports `0.3.0`. This repository is the unreleased `0.3.0` candidate, which fixes version consistency and adds 4 image tools plus `IMAGE_API_BASE_URL`. The image tools below are not a production npm capability until `/image` is deployed, all 9 tools pass smoke tests, and `0.3.0` is published.
+
 ## Features
 
 Provides the following MCP Tools:
@@ -17,7 +19,7 @@ Provides the following MCP Tools:
 - `get_task_status` - Query task status
 - `enhance_video_sync` - Synchronously enhance video (blocking wait, truncated at ~50s by default)
 
-**Image Enhancement**
+**Image Enhancement (unreleased 0.3.0 candidate)**
 - `enhance_image_sync` - Enhance image quality and optimize faces (supports URL or local file upload)
 - `colorize_image_sync` - Colorize black-and-white photos (supports URL or local file upload)
 - `denoise_image_sync` - Remove noise from images (supports URL or local file upload)
@@ -116,7 +118,8 @@ Or edit `~/.cursor/mcp.json`:
 After restarting your client, check if the tools are available:
 
 1. Or ask: "What tools do you have available?"
-2. You should see: `create_task`, `get_task_status`, `enhance_video_sync`, `enhance_image_sync`, `colorize_image_sync`, `denoise_image_sync`, `get_image_task_status`, `sam3_predict`, `get_sam3_task_status`
+2. With the current npm `latest=0.2.1`, you should see `create_task`, `get_task_status`, `enhance_video_sync`, `sam3_predict`, and `get_sam3_task_status`.
+3. After `0.3.0` is published, you should additionally see `enhance_image_sync`, `colorize_image_sync`, `denoise_image_sync`, and `get_image_task_status`.
 
 ## Configuration Options
 
@@ -129,7 +132,9 @@ After restarting your client, check if the tools are available:
 | `SAM3_POLL_INTERVAL` | No | `2000` | SAM3 polling interval (milliseconds) |
 | `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | SAM3 maximum polling attempts |
 
-### Custom Endpoint
+`IMAGE_API_BASE_URL` is implemented by the unreleased `0.3.0` candidate. Do not point it at the video-only `/enhance` service; production `0.3.0` must use the independently deployed `/image` endpoint.
+
+### Custom Endpoint (0.3.0 candidate)
 
 ```json
 {
@@ -144,8 +149,10 @@ After restarting your client, check if the tools are available:
 
 Or via CLI args:
 ```bash
-npx -y @avclabs.ai/media-mcp@latest --base-url https://your-video-endpoint.com --image-base-url https://your-image-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
+npx -y @avclabs.ai/media-mcp@0.3.0 --base-url https://your-video-endpoint.com --image-base-url https://your-image-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
+
+Run this command only after `0.3.0` is published; npm `0.2.1` does not support `--image-base-url`.
 
 ## Recommended Workflow
 
@@ -585,7 +592,7 @@ Then use `"command": "media-mcp"` with `"args": ["--api-key", "your-api-key"]` i
 
 ## Development and Release
 
-This package runs locally in the MCP client and is released through npm; it is not a remote Node daemon. The sibling `media-mcp-api-http-server` currently provides the video/account backend only, while image enhancement and SAM3 remain separate production dependencies. Before publishing, run:
+This package runs locally in the MCP client and is released through npm; it is not a remote Node daemon. The sibling `media-mcp-api-http-server` is live as the `/enhance` video/account backend, and the Portal is live; image enhancement and SAM3 remain separate production dependencies. The `/image` route and SAM3 JSON health required by the 9-tool candidate are not ready, so `0.3.0` must not be published yet. Before publishing, run:
 
 ```bash
 npm ci
