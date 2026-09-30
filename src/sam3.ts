@@ -3,13 +3,23 @@ import axios, { AxiosInstance } from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
-import FormData from 'form-data';
+import {
+  checkLocalFile,
+  decodeBase64Image,
+  downloadToBuffer,
+  parseTosSignature,
+  unwrapEnvelope,
+  uploadToTos,
+} from './tos.js';
+import { classifyStatus, POLL_REQUEST_TIMEOUT_MS, pollUntilTerminal, registerTool } from './tooling.js';
+
+const SAM3_SUCCESS_CODES = new Set([0]);
 
 const Sam3PredictSchema = z.object({
   imagePath: z.string().optional().describe('Absolute path of a local image file (e.g. C:\\\\Users\\\\xxx\\\\photo.png)'),
   imageUrl: z.string().url().optional().describe('Publicly accessible URL of the image to process'),
-  imageBase64: z.string().optional().describe('Base64-encoded image data. Use this when the image is provided as an attachment without a local path'),
-  prompt: z.string().describe('Text prompt for mask generation. Must be in English. If the user provides Chinese or other non-English text, translate it to English before calling this tool'),
+  imageBase64: z.string().optional().describe('Base64-encoded image data (a data: URL prefix is also accepted). Use this when the image is provided as an attachment without a local path'),
+  prompt: z.string().min(1).max(500).describe('Text prompt for mask generation. Must be in English. If the user provides Chinese or other non-English text, translate it to English before calling this tool'),
 });
 
 const GetSam3TaskStatusSchema = z.object({
@@ -32,7 +42,8 @@ export function setupSam3Tools(
     timeout: 60000,
   });
 
-  server.tool(
+  registerTool(
+    server,
     'sam3_predict',
     `Analyze an image using the SAM3 segmentation API to generate inference results (masks, boxes, scores).
 The image can be provided in one of three ways:
@@ -43,82 +54,53 @@ In this case, encode the image content as base64 and pass it via this parameter.
 If the user mentions an uploaded image but does not provide a path, URL, or base64 data, ask the user for the local absolute path.
 Prompt must be in English. If the user provides Chinese or other non-English text, translate it to English before calling this tool.`,
     Sam3PredictSchema.shape,
-    async (args) => {
-      try {
-        if (!apiKey) {
-          throw new Error('SAM3 API Key not configured. Please set API_KEY environment variable or --api-key argument.');
-        }
-        const result = await sam3PredictTool(client, pollInterval, pollMaxAttempts, args);
-        return {
-          content: [{ type: 'text', text: result }],
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return {
-          content: [{ type: 'text', text: JSON.stringify({ success: false, error: errorMessage }, null, 2) }],
-        };
-      }
-    }
+    async (args) => sam3PredictTool(client, pollInterval, pollMaxAttempts, args)
   );
 
-  server.tool(
+  registerTool(
+    server,
     'get_sam3_task_status',
     'Query SAM3 image segmentation task status by task_id. Status can be: processing, completed, or failed. If completed, the result URL is returned.',
     GetSam3TaskStatusSchema.shape,
     async (args) => {
-      try {
-        if (!apiKey) {
-          throw new Error('SAM3 API Key not configured. Please set API_KEY environment variable or --api-key argument.');
-        }
-        const data = await getSam3Result(client, args.task_id);
-
-        if (data.status === 'failed') {
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                success: false,
-                task_id: args.task_id,
-                status: 'failed',
-                error: data.error_message || 'Task failed',
-              }, null, 2),
-            }],
-          };
-        }
-
-        if (data.status === 'completed') {
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                success: true,
-                task_id: args.task_id,
-                status: 'completed',
-                result_url: data.result,
-              }, null, 2),
-            }],
-          };
-        }
-
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              success: true,
-              task_id: args.task_id,
-              status: data.status || 'processing',
-              message: 'Task is still processing, please check again later.',
-            }, null, 2),
-          }],
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return {
-          content: [{ type: 'text', text: JSON.stringify({ success: false, error: errorMessage }, null, 2) }],
-        };
-      }
+      const data = await getSam3Result(client, args.task_id);
+      return normalizeSam3Status(args.task_id, data);
     }
   );
+}
+
+function normalizeSam3Status(taskId: string, data: any): Record<string, any> {
+  const kind = classifyStatus(data?.status);
+  if (kind === 'ok') {
+    return {
+      success: true,
+      task_id: taskId,
+      status: data.status,
+      result_url: data.result,
+    };
+  }
+  if (kind === 'failed') {
+    return {
+      success: false,
+      task_id: taskId,
+      status: data.status,
+      error: data.error_message || 'Task failed',
+    };
+  }
+  if (kind === 'unknown') {
+    return {
+      success: false,
+      task_id: taskId,
+      status: data?.status ?? 'unknown',
+      error: `Unrecognized task status: ${JSON.stringify(data?.status ?? null)}`,
+    };
+  }
+  return {
+    success: true,
+    task_id: taskId,
+    status: data.status,
+    message: 'Task is still processing, please check again later.',
+  };
 }
 
 async function getSam3PostSignature(client: AxiosInstance, fileName: string): Promise<any> {
@@ -126,120 +108,63 @@ async function getSam3PostSignature(client: AxiosInstance, fileName: string): Pr
     file_type: 'image',
     file_name: fileName,
   });
-  const data = response.data;
-  if (data.code !== 0) {
-    throw new Error(`get_postsignature_url error: ${data.message || 'unknown error'}`);
+  const unwrapped = unwrapEnvelope(response, SAM3_SUCCESS_CODES);
+  if (!unwrapped.ok) {
+    throw new Error(`get_postsignature_url error: ${unwrapped.error}`);
   }
-  return data.data;
-}
-
-async function uploadImageToTos(url: string, sigData: any, tosKey: string, buffer: Buffer, fileName: string): Promise<void> {
-  const formData = new FormData();
-  formData.append('key', tosKey);
-  formData.append('policy', sigData.policy);
-  formData.append('x-tos-algorithm', sigData.algorithm);
-  formData.append('x-tos-credential', sigData.credential);
-  formData.append('x-tos-date', sigData.date);
-  formData.append('x-tos-signature', sigData.signature);
-  formData.append('file', buffer, fileName);
-
-  const response = await axios.post(url, formData, {
-    headers: formData.getHeaders(),
-    maxBodyLength: Infinity,
-    maxContentLength: Infinity,
-  });
-
-  if (response.status >= 400) {
-    throw new Error(`TOS upload failed: ${response.status} ${response.statusText}`);
-  }
+  return unwrapped.data;
 }
 
 async function sam3Predict(client: AxiosInstance, fileId: string, prompt: string): Promise<string> {
   const response = await client.post('/predict', { file_id: fileId, prompt });
-  return response.data.task_id;
+  const body = response.data;
+  if (!body || typeof body !== 'object' || typeof body.task_id !== 'string' || !body.task_id) {
+    const preview = typeof body === 'string' ? body.slice(0, 200) : JSON.stringify(body)?.slice(0, 200);
+    throw new Error(`Unexpected /predict response: ${preview}`);
+  }
+  return body.task_id;
 }
 
 async function downloadSam3Result(url: string): Promise<any> {
-  const response = await axios.get(url);
+  const response = await axios.get(url, { timeout: 30000 });
   return response.data;
 }
 
 async function prepareImageBuffer(args: { imagePath?: string; imageUrl?: string; imageBase64?: string }): Promise<{ buffer: Buffer; fileName: string }> {
   const { imagePath, imageUrl, imageBase64 } = args;
 
-  if (!imagePath && !imageUrl && !imageBase64) {
-    throw new Error('Missing image input: must provide one of imagePath, imageUrl, or imageBase64');
-  }
-
-  let buffer: Buffer;
-  let fileName: string;
-
   if (imagePath) {
-    if (!fs.existsSync(imagePath)) {
-      throw new Error(`Local file does not exist: ${imagePath}`);
-    }
-    fileName = path.basename(imagePath);
-    buffer = fs.readFileSync(imagePath);
-  } else if (imageUrl) {
-    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-    buffer = Buffer.from(response.data);
-    fileName = path.basename(new URL(imageUrl).pathname) || 'image.png';
-  } else if (imageBase64) {
-    buffer = Buffer.from(imageBase64, 'base64');
-    fileName = 'image.png';
-  } else {
-    throw new Error('Missing image input: must provide one of imagePath, imageUrl, or imageBase64');
+    checkLocalFile(imagePath, 'image');
+    return { buffer: fs.readFileSync(imagePath), fileName: path.basename(imagePath) };
   }
-
-  return { buffer, fileName };
+  if (imageUrl) {
+    const buffer = await downloadToBuffer(imageUrl);
+    const fileName = path.basename(new URL(imageUrl).pathname) || 'image.png';
+    return { buffer, fileName };
+  }
+  if (imageBase64) {
+    return decodeBase64Image(imageBase64);
+  }
+  throw new Error('Missing image input: must provide one of imagePath, imageUrl, or imageBase64');
 }
 
 async function sam3CreateTask(client: AxiosInstance, buffer: Buffer, fileName: string, prompt: string): Promise<string> {
   const signatureData = await getSam3PostSignature(client, fileName);
-  const { url, origin_policy } = signatureData;
+  const target = parseTosSignature(signatureData);
 
-  if (!url) {
-    throw new Error('Missing upload URL in post signature response');
-  }
-
-  const keyObj = JSON.parse(origin_policy).conditions.find((c: any) => 'key' in c);
-  const tosKey = keyObj ? keyObj.key : new URL(url).pathname.slice(1);
-
-  const fileId = new URL(url).pathname.split('/').pop();
-  if (!fileId) {
-    throw new Error('Could not extract file_id from upload URL');
-  }
-
-  await uploadImageToTos(url, signatureData, tosKey, buffer, fileName);
-  const taskId = await sam3Predict(client, fileId, prompt);
-
-  return taskId;
+  await uploadToTos(target, buffer, fileName);
+  return sam3Predict(client, target.fileId, prompt);
 }
 
 async function getSam3Result(client: AxiosInstance, taskId: string): Promise<any> {
-  const response = await client.get(`/predict/result/${encodeURIComponent(taskId)}`);
-  return response.data;
-}
-
-async function getSam3PredictResult(client: AxiosInstance, taskId: string, pollInterval: number, pollMaxAttempts: number): Promise<any> {
-  for (let attempt = 0; attempt < pollMaxAttempts; attempt++) {
-    const data = await getSam3Result(client, taskId);
-
-    if (data.status === 'completed') {
-      return data;
-    }
-    if (data.status === 'failed') {
-      throw new Error(`Task failed: ${data.error_message || 'unknown error'}`);
-    }
-    await sleep(pollInterval);
+  const response = await client.get(`/predict/result/${encodeURIComponent(taskId)}`, {
+    timeout: POLL_REQUEST_TIMEOUT_MS,
+  });
+  const data = response.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error(`Unexpected task status response (HTTP ${response.status})`);
   }
-  return {
-    success: true,
-    status: 'processing',
-    task_id: taskId,
-    message: `Task is still processing (waited about ${Math.round(pollMaxAttempts * pollInterval / 1000)} seconds). Please retry later or record this task_id for manual follow-up.`,
-    note: 'The synchronous wait for this long-running task has been truncated.',
-  };
+  return data;
 }
 
 async function sam3PredictTool(
@@ -247,26 +172,28 @@ async function sam3PredictTool(
   pollInterval: number,
   pollMaxAttempts: number,
   args: z.infer<typeof Sam3PredictSchema>
-): Promise<string> {
-  if (!args.prompt) {
-    throw new Error('Missing argument: prompt');
-  }
-
+): Promise<unknown> {
   const { buffer, fileName } = await prepareImageBuffer(args);
   const taskId = await sam3CreateTask(client, buffer, fileName, args.prompt);
 
-  const taskResult = await getSam3PredictResult(client, taskId, pollInterval, pollMaxAttempts);
+  const taskResult = await pollUntilTerminal({
+    taskId,
+    timeoutSeconds: (pollInterval * pollMaxAttempts) / 1000,
+    pollIntervalSeconds: pollInterval / 1000,
+    continueHint: 'get_sam3_task_status',
+    fetchStatus: async () => {
+      const data = await getSam3Result(client, taskId);
+      return {
+        status: data.status,
+        payload: { result_url: data.result, error_message: data.error_message },
+      };
+    },
+  });
 
-  if (taskResult.success === true && taskResult.status === 'processing') {
-    return JSON.stringify(taskResult, null, 2);
+  if (!taskResult.success || taskResult.status === 'processing') {
+    return taskResult;
   }
 
-  const resultUrl = taskResult.result;
-  const resultJson = await downloadSam3Result(resultUrl);
-
+  const resultJson = await downloadSam3Result(taskResult.result_url);
   return JSON.stringify(resultJson, null, 2);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

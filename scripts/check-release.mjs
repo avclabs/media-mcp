@@ -12,7 +12,7 @@ const packageJson = readJson('package.json')
 const packageLock = readJson('package-lock.json')
 const serverJson = readJson('server.json')
 const serverSource = fs.readFileSync(path.join(projectRoot, 'src/server.ts'), 'utf8')
-const sourceVersion = serverSource.match(/version:\s*['"]([^'"]+)['"]/)?.[1]
+const sourceVersion = serverSource.match(/name:\s*['"]media-mcp['"][\s\S]*?version:\s*['"]([^'"]+)['"]/)?.[1]
 
 const versions = new Map([
   ['package.json', packageJson.version],

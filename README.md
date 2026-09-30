@@ -131,7 +131,7 @@ After restarting your client, check if the tools are available:
 | `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Shared video and image HTTP service endpoint |
 | `IMAGE_API_BASE_URL` | No | Same as `HTTP_API_BASE_URL` | Optional image endpoint override; omit for the shared production server |
 | `SAM3_API_BASE_URL` | No | `https://mcp.avc.ai/sam` | SAM3 service endpoint |
-| `SAM3_POLL_INTERVAL` | No | `2000` | SAM3 polling interval (milliseconds) |
+| `SAM3_POLL_INTERVAL_MS` | No | `2000` | SAM3 polling interval in milliseconds (`SAM3_POLL_INTERVAL` is a deprecated alias) |
 | `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | SAM3 maximum polling attempts |
 
 `IMAGE_API_BASE_URL` is implemented by the unreleased `0.3.0` candidate as an optional override. Production uses the shared `/enhance` service, so it should normally be omitted; the candidate then resolves image and video calls to the same base URL.
@@ -264,8 +264,8 @@ Synchronously enhance video (blocks until completion).
 | `video_source` | string | Yes | - | Video URL or local file path |
 | `type` | string | No | `url` | `url` or `local` |
 | `resolution` | string | No | `720p` | Target resolution |
-| `poll_interval` | number | No | `5` | Poll interval (seconds) |
-| `timeout` | number | No | `50` | Sync wait timeout (seconds), returns early when exceeded |
+| `poll_interval` | number | No | `5` | Poll interval (seconds, 0.5-30) |
+| `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
 
 **Truncated return example (not completed within 50s):**
 ```json
@@ -300,15 +300,15 @@ All three tools share the same parameters and behavior pattern. They are **synch
 
 Synchronously enhance an image to improve quality and optimize faces.
 
-> The tool internally creates a task and polls for the result. If processing completes within the timeout (default 50s), the result is returned directly. If not, the tool returns early with a `task_id` — use `get_image_task_status` to continue polling.
+> The tool internally creates a task and polls for the result. If processing completes within the timeout (default 45s), the result is returned directly. If not, the tool returns early with a `task_id` — use `get_image_task_status` to continue polling.
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `image_source` | string | Yes | - | Image URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
 | `type` | string | No | `url` | `url` or `local` |
 | `scale` | number | No | `2` | Enhancement scale multiplier (e.g. `2` for 2x, `4` for 4x upscaling) |
-| `poll_interval` | number | No | `5` | Poll interval in seconds |
-| `timeout` | number | No | `50` | Sync wait timeout in seconds, returns early when exceeded |
+| `poll_interval` | number | No | `5` | Poll interval in seconds (0.5-30) |
+| `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
 
 **Normal completion return:**
 ```json
@@ -342,8 +342,8 @@ Synchronously colorize a black-and-white photo with AI.
 |---|---|---|---|---|
 | `image_source` | string | Yes | - | Image URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
 | `type` | string | No | `url` | `url` or `local` |
-| `poll_interval` | number | No | `5` | Poll interval in seconds |
-| `timeout` | number | No | `50` | Sync wait timeout in seconds, returns early when exceeded |
+| `poll_interval` | number | No | `5` | Poll interval in seconds (0.5-30) |
+| `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
 
 **Returns:** Same format as `enhance_image_sync`.
 
@@ -357,8 +357,8 @@ Synchronously remove noise from an image.
 |---|---|---|---|---|
 | `image_source` | string | Yes | - | Image URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
 | `type` | string | No | `url` | `url` or `local` |
-| `poll_interval` | number | No | `5` | Poll interval in seconds |
-| `timeout` | number | No | `50` | Sync wait timeout in seconds, returns early when exceeded |
+| `poll_interval` | number | No | `5` | Poll interval in seconds (0.5-30) |
+| `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
 
 **Returns:** Same format as `enhance_image_sync`.
 

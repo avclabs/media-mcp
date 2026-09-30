@@ -129,7 +129,7 @@ AI 会自动完成：
 | `HTTP_API_BASE_URL` | 否 | `https://mcp.avc.ai/enhance` | 视频与图片共用的 HTTP 服务接口地址 |
 | `IMAGE_API_BASE_URL` | 否 | 与 `HTTP_API_BASE_URL` 相同 | 可选图片接口覆盖；共享生产服务无需配置 |
 | `SAM3_API_BASE_URL` | 否 | `https://mcp.avc.ai/sam` | SAM3 服务接口地址 |
-| `SAM3_POLL_INTERVAL` | 否 | `2000` | SAM3 轮询间隔（毫秒） |
+| `SAM3_POLL_INTERVAL_MS` | 否 | `2000` | SAM3 轮询间隔（毫秒，`SAM3_POLL_INTERVAL` 为已弃用别名） |
 | `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | SAM3 最大轮询次数 |
 
 `IMAGE_API_BASE_URL` 由尚未发布的 `0.3.0` 候选作为可选覆盖实现。生产使用共享 `/enhance` 服务，因此通常应省略；候选客户端会把图片与视频请求解析到同一基址。
@@ -262,8 +262,8 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 | `video_source` | string | 是 | - | 视频 URL 或本地文件路径 |
 | `type` | string | 否 | `url` | `url` 或 `local` |
 | `resolution` | string | 否 | `720p` | 目标分辨率 |
-| `poll_interval` | number | 否 | `5` | 轮询间隔（秒） |
-| `timeout` | number | 否 | `50` | 同步等待超时时间（秒），超过后主动返回 |
+| `poll_interval` | number | 否 | `5` | 轮询间隔（秒，0.5-30） |
+| `timeout` | number | 否 | `45` | 同步等待超时时间（秒，1-45），超过后主动返回 |
 
 **截断返回示例（50秒未完成）：**
 ```json
@@ -298,15 +298,15 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 
 同步增强图片画质并优化人脸。
 
-> 工具内部会创建任务并轮询结果。如果在超时时间内（默认 50 秒）处理完成，直接返回结果；否则提前返回 `task_id`，需用 `get_image_task_status` 继续轮询。
+> 工具内部会创建任务并轮询结果。如果在超时时间内（默认 45 秒）处理完成，直接返回结果；否则提前返回 `task_id`，需用 `get_image_task_status` 继续轮询。
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|
 | `image_source` | string | 是 | - | 图片 URL 或本地文件路径（URL 必须公网可访问，不支持需要登录或签名的链接） |
 | `type` | string | 否 | `url` | `url` 或 `local` |
 | `scale` | number | 否 | `2` | 增强倍数（如 `2` 为 2 倍、`4` 为 4 倍放大） |
-| `poll_interval` | number | 否 | `5` | 轮询间隔（秒） |
-| `timeout` | number | 否 | `50` | 同步等待超时时间（秒），超过后主动返回 |
+| `poll_interval` | number | 否 | `5` | 轮询间隔（秒，0.5-30） |
+| `timeout` | number | 否 | `45` | 同步等待超时时间（秒，1-45），超过后主动返回 |
 
 **正常完成返回：**
 ```json
@@ -340,8 +340,8 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 |---|---|---|---|---|
 | `image_source` | string | 是 | - | 图片 URL 或本地文件路径（URL 必须公网可访问，不支持需要登录或签名的链接） |
 | `type` | string | 否 | `url` | `url` 或 `local` |
-| `poll_interval` | number | 否 | `5` | 轮询间隔（秒） |
-| `timeout` | number | 否 | `50` | 同步等待超时时间（秒），超过后主动返回 |
+| `poll_interval` | number | 否 | `5` | 轮询间隔（秒，0.5-30） |
+| `timeout` | number | 否 | `45` | 同步等待超时时间（秒，1-45），超过后主动返回 |
 
 **返回值：** 与 `enhance_image_sync` 相同。
 
@@ -355,8 +355,8 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 |---|---|---|---|---|
 | `image_source` | string | 是 | - | 图片 URL 或本地文件路径（URL 必须公网可访问，不支持需要登录或签名的链接） |
 | `type` | string | 否 | `url` | `url` 或 `local` |
-| `poll_interval` | number | 否 | `5` | 轮询间隔（秒） |
-| `timeout` | number | 否 | `50` | 同步等待超时时间（秒），超过后主动返回 |
+| `poll_interval` | number | 否 | `5` | 轮询间隔（秒，0.5-30） |
+| `timeout` | number | 否 | `45` | 同步等待超时时间（秒，1-45），超过后主动返回 |
 
 **返回值：** 与 `enhance_image_sync` 相同。
 
