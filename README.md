@@ -457,6 +457,18 @@ Example result JSON:
 }
 ```
 
+**Result download failure (completed task, missing result):**
+If the task completed but the result file could not be downloaded, the tool returns `success: false` with the `task_id` and `status: "completed"`. Use `get_sam3_task_status` with that `task_id` to recover the result. Do not resubmit the task.
+```json
+{
+  "success": false,
+  "task_id": "xxx",
+  "status": "completed",
+  "error": "Failed to download the completed result for task xxx: ...",
+  "note": "The task has completed; only the result download failed. Do not resubmit. Use get_sam3_task_status with this task_id to recover the result."
+}
+```
+
 #### get_sam3_task_status
 
 Query SAM3 segmentation task status. Used to poll for results when `sam3_predict` times out.

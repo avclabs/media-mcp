@@ -130,6 +130,41 @@ async function downloadSam3Result(url: string): Promise<any> {
   return response.data;
 }
 
+const SAM3_RESULT_DOWNLOAD_NOTE =
+  'The task has completed; only the result download failed. Do not resubmit. Use get_sam3_task_status with this task_id to recover the result.';
+
+/**
+ * Last-hop fetch for a completed SAM3 task. Never throws: a download failure
+ * becomes a structured object that keeps task_id and the terminal status, so
+ * the caller can resume via get_sam3_task_status. A download failure is not
+ * a truncated wait and never rewrites the remote status to failed/processing.
+ */
+export async function fetchSam3ResultPayload(taskId: string, resultUrl: unknown): Promise<Record<string, any>> {
+  if (typeof resultUrl !== 'string' || resultUrl.trim() === '') {
+    return {
+      success: false,
+      task_id: taskId,
+      status: 'completed',
+      error: `Task ${taskId} completed but has no usable result_url; use get_sam3_task_status with this task_id to recover.`,
+      note: SAM3_RESULT_DOWNLOAD_NOTE,
+    };
+  }
+  try {
+    const data = await downloadSam3Result(resultUrl);
+    return { success: true, task_id: taskId, status: 'completed', result_url: resultUrl, result: data };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      task_id: taskId,
+      status: 'completed',
+      result_url: resultUrl,
+      error: `Failed to download the completed result for task ${taskId}: ${message}`,
+      note: SAM3_RESULT_DOWNLOAD_NOTE,
+    };
+  }
+}
+
 async function prepareImageBuffer(args: { imagePath?: string; imageUrl?: string; imageBase64?: string }): Promise<{ buffer: Buffer; fileName: string }> {
   const { imagePath, imageUrl, imageBase64 } = args;
 
@@ -195,6 +230,9 @@ async function sam3PredictTool(
     return taskResult;
   }
 
-  const resultJson = await downloadSam3Result(taskResult.result_url);
-  return JSON.stringify(resultJson, null, 2);
+  const outcome = await fetchSam3ResultPayload(taskResult.task_id, taskResult.result_url);
+  if (!outcome.success) {
+    return outcome;
+  }
+  return JSON.stringify(outcome.result, null, 2);
 }

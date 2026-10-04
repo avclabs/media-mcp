@@ -455,6 +455,18 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 }
 ```
 
+**结果下载失败（任务已完成、结果缺失）：**
+任务已完成但结果文件下载失败时，工具返回 `success: false`，同时携带 `task_id` 与 `status: "completed"`。请用该 `task_id` 调用 `get_sam3_task_status` 恢复结果，不要重新提交任务。
+```json
+{
+  "success": false,
+  "task_id": "xxx",
+  "status": "completed",
+  "error": "Failed to download the completed result for task xxx: ...",
+  "note": "The task has completed; only the result download failed. Do not resubmit. Use get_sam3_task_status with this task_id to recover the result."
+}
+```
+
 #### get_sam3_task_status
 
 查询 SAM3 分割任务状态。当 `sam3_predict` 超时后，用此工具轮询结果。
