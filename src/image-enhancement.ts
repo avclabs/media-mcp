@@ -200,9 +200,10 @@ async function createImageTask(
   return { success: true, task_id: unwrapped.data.task_id, status: unwrapped.data.status };
 }
 
-async function getImageTaskStatus(client: AxiosInstance, taskId: string): Promise<any> {
+async function getImageTaskStatus(client: AxiosInstance, taskId: string, signal?: AbortSignal): Promise<any> {
   const response = await client.get(`/api/v3/contents/generations/tasks/${encodeURIComponent(taskId)}`, {
     timeout: POLL_REQUEST_TIMEOUT_MS,
+    signal,
   });
   const unwrapped = unwrapEnvelope(response);
   if (!unwrapped.ok) {
@@ -239,8 +240,8 @@ async function processImageSync(
     timeoutSeconds: timeout,
     pollIntervalSeconds: pollInterval,
     continueHint: 'get_image_task_status',
-    fetchStatus: async () => {
-      const { task_id, status, ...payload } = await getImageTaskStatus(client, createResult.task_id);
+    fetchStatus: async (signal) => {
+      const { task_id, status, ...payload } = await getImageTaskStatus(client, createResult.task_id, signal);
       return { status, payload };
     },
   });

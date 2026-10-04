@@ -511,11 +511,7 @@ This is the primary issue this project addresses. MCP Agents (such as Claude, Cu
 
 3. **SAM3 truncation mechanism**: `sam3_predict` defaults to 25 polling attempts (~50 seconds). If the task is not completed, it returns a truncation notice indicating the task is still processing.
 
-4. **Adjust SAM3 polling parameters** (advanced): If you are confident that SAM3 tasks are usually fast (e.g., under 10 seconds), you can increase polling attempts via environment variable:
-   ```bash
-   SAM3_POLL_MAX_ATTEMPTS=60
-   ```
-   But ensure the total wait time does not exceed your Agent's timeout limit.
+4. **Adjust SAM3 polling parameters** (advanced): The SAM3 synchronous wait budget is capped at 45 seconds. If you expect SAM3 tasks to finish in about 10 seconds, keep the default settings; to trade interval for attempt count within the same budget, lower the interval instead (e.g. `SAM3_POLL_INTERVAL_MS=1000` with `SAM3_POLL_MAX_ATTEMPTS=45`). Raising `SAM3_POLL_MAX_ATTEMPTS` cannot extend the wait beyond the 45-second cap; when explicitly configured values exceed the cap, the server reduces the attempt count and prints a notice at startup.
 
 ### Drag-and-drop attachment says file not found?
 

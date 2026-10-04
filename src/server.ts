@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 import { setupVideoEnhancementTools } from './video-enhancement.js';
 import { setupImageEnhancementTools } from './image-enhancement.js';
 import { setupSam3Tools } from './sam3.js';
-import { resolveImageBaseUrl } from './service-config.js';
+import { clampSam3WaitBudget, resolveImageBaseUrl } from './service-config.js';
 import { clampNumber } from './tooling.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -116,6 +116,19 @@ async function main(): Promise<void> {
     } else if (args[i] === '--config' && i + 1 < args.length) {
       i++;
     }
+  }
+
+  // SAM3's wait budget is a product (interval x attempts); keep it inside the
+  // sync wait cap up front, and only note the reduction when the user picked
+  // the values explicitly (the defaults already sit on the cap by design).
+  const sam3IntervalExplicit =
+    process.env.SAM3_POLL_INTERVAL_MS !== undefined ||
+    process.env.SAM3_POLL_INTERVAL !== undefined ||
+    args.includes('--sam3-poll-interval');
+  const sam3AttemptsExplicit =
+    process.env.SAM3_POLL_MAX_ATTEMPTS !== undefined || args.includes('--sam3-poll-max-attempts');
+  if (sam3IntervalExplicit || sam3AttemptsExplicit) {
+    sam3PollMaxAttempts = clampSam3WaitBudget(sam3PollInterval, sam3PollMaxAttempts, { note: console.error }).maxAttempts;
   }
 
   if (!apiKey) {

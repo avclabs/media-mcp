@@ -156,9 +156,10 @@ async function sam3CreateTask(client: AxiosInstance, buffer: Buffer, fileName: s
   return sam3Predict(client, target.fileId, prompt);
 }
 
-async function getSam3Result(client: AxiosInstance, taskId: string): Promise<any> {
+async function getSam3Result(client: AxiosInstance, taskId: string, signal?: AbortSignal): Promise<any> {
   const response = await client.get(`/predict/result/${encodeURIComponent(taskId)}`, {
     timeout: POLL_REQUEST_TIMEOUT_MS,
+    signal,
   });
   const data = response.data;
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -181,8 +182,8 @@ async function sam3PredictTool(
     timeoutSeconds: (pollInterval * pollMaxAttempts) / 1000,
     pollIntervalSeconds: pollInterval / 1000,
     continueHint: 'get_sam3_task_status',
-    fetchStatus: async () => {
-      const data = await getSam3Result(client, taskId);
+    fetchStatus: async (signal) => {
+      const data = await getSam3Result(client, taskId, signal);
       return {
         status: data.status,
         payload: { result_url: data.result, error_message: data.error_message },

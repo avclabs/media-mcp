@@ -50,6 +50,12 @@ export function remainingSleepMs(intervalMs: number, deadline: number, now: numb
   return Math.max(0, Math.min(intervalMs, deadline - now));
 }
 
+// A single status request never outlives the remaining wait budget (and never
+// runs with timeout 0, which axios treats as "no timeout").
+export function requestBudgetMs(deadline: number, now: number = Date.now()): number {
+  return Math.max(250, Math.min(POLL_REQUEST_TIMEOUT_MS, deadline - now));
+}
+
 const TERMINAL_OK_STATUSES = new Set(['completed', 'succeeded', 'success']);
 const TERMINAL_FAIL_STATUSES = new Set(['failed', 'canceled', 'cancelled', 'expired', 'rejected']);
 const TRANSIENT_STATUSES = new Set(['processing', 'pending', 'running', 'queued']);
@@ -73,14 +79,15 @@ export interface PollParams {
   taskId: string;
   timeoutSeconds: number;
   pollIntervalSeconds: number;
-  fetchStatus: () => Promise<PollFetchResult>;
+  fetchStatus: (signal: AbortSignal) => Promise<PollFetchResult>;
   continueHint: string;
 }
 
 /**
- * Deadline-aware polling: never sleeps past the deadline, tolerates transient
- * network failures, treats unknown statuses as errors after a few sightings,
- * and always keeps task_id in the response so the task is never lost.
+ * Deadline-aware polling: never sleeps past the deadline, aborts each status
+ * request at the remaining wait budget, tolerates transient network failures,
+ * treats unknown statuses as errors after a few sightings, and always keeps
+ * task_id in the response so the task is never lost.
  */
 export async function pollUntilTerminal(params: PollParams): Promise<Record<string, any>> {
   const timeoutSeconds = clampNumber(params.timeoutSeconds, 1, 45, 45);
@@ -90,9 +97,20 @@ export async function pollUntilTerminal(params: PollParams): Promise<Record<stri
   let unknownSightings = 0;
 
   while (Date.now() < deadline) {
+    const requestBudget = requestBudgetMs(deadline);
+    const controller = new AbortController();
+    const abortTimer = setTimeout(() => controller.abort(), requestBudget);
+    const budgetExceeded = new Promise<never>((_, reject) => {
+      controller.signal.addEventListener(
+        'abort',
+        () => reject(new Error(`Status request exceeded its request budget (${requestBudget} ms)`)),
+        { once: true }
+      );
+    });
+
     let fetched: PollFetchResult;
     try {
-      fetched = await params.fetchStatus();
+      fetched = await Promise.race([params.fetchStatus(controller.signal), budgetExceeded]);
       consecutiveFailures = 0;
     } catch (error) {
       consecutiveFailures++;
@@ -107,6 +125,8 @@ export async function pollUntilTerminal(params: PollParams): Promise<Record<stri
       }
       await sleep(remainingSleepMs(intervalMs, deadline));
       continue;
+    } finally {
+      clearTimeout(abortTimer);
     }
 
     const kind = classifyStatus(fetched.status);

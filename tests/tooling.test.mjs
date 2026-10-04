@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { classifyStatus, clampNumber, pollUntilTerminal, remainingSleepMs } from '../dist/tooling.js';
+import { classifyStatus, clampNumber, pollUntilTerminal, remainingSleepMs, requestBudgetMs } from '../dist/tooling.js';
 
 test('clampNumber falls back on non-finite input and clamps to range', () => {
   assert.equal(clampNumber(NaN, 1, 45, 45), 45);
@@ -119,4 +119,64 @@ test('pollUntilTerminal truncates at the deadline with a processing result', asy
   assert.equal(result.task_id, 'task-6');
   assert.match(result.message, /get_task_status/);
   assert.ok(elapsed < 5000, `truncation should be quick, took ${elapsed}ms`);
+});
+
+test('requestBudgetMs bounds a single status request by the remaining wait budget', () => {
+  const now = 1000;
+  // remaining far above the request cap -> capped at 10s
+  assert.equal(requestBudgetMs(now + 40000, now), 10000);
+  // remaining below the cap -> exactly the remaining time
+  assert.equal(requestBudgetMs(now + 700, now), 700);
+  // remaining at/below the floor -> never 0 (axios treats timeout 0 as "no timeout")
+  assert.equal(requestBudgetMs(now + 50, now), 250);
+  assert.equal(requestBudgetMs(now - 500, now), 250);
+});
+
+test('pollUntilTerminal passes a signal to fetchStatus without aborting it up front', async () => {
+  const signals = [];
+  const result = await pollUntilTerminal({
+    taskId: 'task-7',
+    timeoutSeconds: 2,
+    pollIntervalSeconds: 0.5,
+    continueHint: 'get_task_status',
+    fetchStatus: async (signal) => {
+      signals.push(signal);
+      throw new Error('down');
+    },
+  });
+  assert.equal(result.success, false);
+  assert.equal(result.task_id, 'task-7');
+  assert.equal(signals.length, 3);
+  assert.ok(signals.every((s) => s instanceof AbortSignal && !s.aborted));
+});
+
+test('pollUntilTerminal aborts a hanging fetchStatus at the budget edge and still truncates on time', async () => {
+  const started = Date.now();
+  const result = await pollUntilTerminal({
+    taskId: 'task-8',
+    timeoutSeconds: 1,
+    pollIntervalSeconds: 0.5,
+    continueHint: 'get_task_status',
+    fetchStatus: async () => new Promise(() => {}),
+  });
+  const elapsed = Date.now() - started;
+  assert.equal(result.success, true);
+  assert.equal(result.status, 'processing');
+  assert.equal(result.task_id, 'task-8');
+  assert.ok(elapsed >= 900 && elapsed < 3500, `should truncate near the 1s budget, took ${elapsed}ms`);
+});
+
+test('pollUntilTerminal treats a signal-aborted slow fetchStatus as a tolerated failure', async () => {
+  const result = await pollUntilTerminal({
+    taskId: 'task-9',
+    timeoutSeconds: 1,
+    pollIntervalSeconds: 0.5,
+    continueHint: 'get_task_status',
+    fetchStatus: async (signal) => new Promise((_, reject) => {
+      signal.addEventListener('abort', () => reject(new Error('canceled')), { once: true });
+    }),
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.status, 'processing');
+  assert.equal(result.task_id, 'task-9');
 });
