@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
+import { MAX_SYNC_WAIT_BUDGET_MS } from './service-config.js';
 
 // ---------------------------------------------------------------------------
 // Tool registration wrapper: business failures surface as MCP isError results
@@ -90,7 +91,7 @@ export interface PollParams {
  * task_id in the response so the task is never lost.
  */
 export async function pollUntilTerminal(params: PollParams): Promise<Record<string, any>> {
-  const timeoutSeconds = clampNumber(params.timeoutSeconds, 1, 45, 45);
+  const timeoutSeconds = clampNumber(params.timeoutSeconds, 1, MAX_SYNC_WAIT_BUDGET_MS / 1000, MAX_SYNC_WAIT_BUDGET_MS / 1000);
   const intervalMs = clampNumber(params.pollIntervalSeconds, 0.5, 30, 5) * 1000;
   const deadline = Date.now() + timeoutSeconds * 1000;
   let consecutiveFailures = 0;
@@ -103,7 +104,7 @@ export async function pollUntilTerminal(params: PollParams): Promise<Record<stri
     const budgetExceeded = new Promise<never>((_, reject) => {
       controller.signal.addEventListener(
         'abort',
-        () => reject(new Error(`Status request exceeded its request budget (${requestBudget} ms)`)),
+        () => reject(new Error(`Status request aborted at the wait budget edge (capped at ${requestBudget} ms)`)),
         { once: true }
       );
     });

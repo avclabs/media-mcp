@@ -120,7 +120,9 @@ async function main(): Promise<void> {
 
   // SAM3's wait budget is a product (interval x attempts); keep it inside the
   // sync wait cap up front, and only note the reduction when the user picked
-  // the values explicitly (the defaults already sit on the cap by design).
+  // the values explicitly (the default product 2000 ms x 25 = 50 s is still
+  // silently truncated to the 45 s cap downstream, unchanged pre-existing
+  // behavior).
   const sam3IntervalExplicit =
     process.env.SAM3_POLL_INTERVAL_MS !== undefined ||
     process.env.SAM3_POLL_INTERVAL !== undefined ||
