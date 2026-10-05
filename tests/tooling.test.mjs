@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import test from 'node:test';
+import axios from 'axios';
 
 import { classifyStatus, clampNumber, pollUntilTerminal, remainingSleepMs, requestBudgetMs } from '../dist/tooling.js';
 
@@ -179,4 +181,175 @@ test('pollUntilTerminal treats a signal-aborted slow fetchStatus as a tolerated 
   assert.equal(result.success, true);
   assert.equal(result.status, 'processing');
   assert.equal(result.task_id, 'task-9');
+});
+
+// --- Deterministic sequences on a fake clock (same interface, no real waiting) ---
+
+function fakeClock() {
+  let t = 0;
+  return {
+    now: () => t,
+    delay: async (ms) => { t += ms; },
+  };
+}
+
+test('pollUntilTerminal drives a full status sequence to completion on a fake clock', async () => {
+  const clock = fakeClock();
+  const statuses = ['processing', 'processing', 'completed'];
+  const seen = [];
+  const result = await pollUntilTerminal({
+    taskId: 'seq-1',
+    timeoutSeconds: 50,
+    pollIntervalSeconds: 2,
+    continueHint: 'get_task_status',
+    now: clock.now,
+    delay: clock.delay,
+    fetchStatus: async () => {
+      const status = statuses.shift();
+      seen.push(status);
+      return { status, payload: status === 'completed' ? { video_url: 'https://x/v.mp4' } : {} };
+    },
+  });
+  assert.deepEqual(seen, ['processing', 'processing', 'completed']);
+  assert.equal(result.success, true);
+  assert.equal(result.task_id, 'seq-1');
+  assert.equal(result.video_url, 'https://x/v.mp4');
+});
+
+test('pollUntilTerminal truncates immediately when the first query counts and N=1, with no trailing sleep', async () => {
+  const clock = fakeClock();
+  let queries = 0;
+  const result = await pollUntilTerminal({
+    taskId: 'count-1',
+    timeoutSeconds: 50,
+    pollIntervalSeconds: 2,
+    maxAttempts: 1,
+    continueHint: 'get_sam3_task_status',
+    now: clock.now,
+    delay: clock.delay,
+    fetchStatus: async () => {
+      queries++;
+      return { status: 'processing', payload: {} };
+    },
+  });
+  assert.equal(queries, 1);
+  assert.equal(result.success, true);
+  assert.equal(result.status, 'processing');
+  assert.equal(result.task_id, 'count-1');
+  assert.match(result.message, /1 status query/);
+  assert.match(result.message, /get_sam3_task_status/);
+});
+
+test('pollUntilTerminal honors the attempt limit across several queries and stops without a tail wait', async () => {
+  const clock = fakeClock();
+  let queries = 0;
+  const result = await pollUntilTerminal({
+    taskId: 'count-2',
+    timeoutSeconds: 50,
+    pollIntervalSeconds: 0.5,
+    maxAttempts: 25,
+    continueHint: 'get_task_status',
+    now: clock.now,
+    delay: clock.delay,
+    fetchStatus: async () => {
+      queries++;
+      return { status: 'processing', payload: {} };
+    },
+  });
+  assert.equal(queries, 25);
+  assert.equal(result.status, 'processing');
+  // Count limit truncated first: the message must not claim the full budget.
+  assert.match(result.message, /12 seconds, 25 status queries/);
+});
+
+test('pollUntilTerminal returns at budget exhaustion when the interval exceeds the budget', async () => {
+  const clock = fakeClock();
+  let queries = 0;
+  const result = await pollUntilTerminal({
+    taskId: 'slow-1',
+    timeoutSeconds: 50,
+    pollIntervalSeconds: 60,
+    maxAttempts: 25,
+    continueHint: 'get_task_status',
+    now: clock.now,
+    delay: clock.delay,
+    fetchStatus: async () => {
+      queries++;
+      return { status: 'processing', payload: {} };
+    },
+  });
+  // 50 s budget, 60 s interval: exactly one query, no second request past the deadline.
+  assert.equal(queries, 1);
+  assert.equal(result.status, 'processing');
+  assert.equal(result.task_id, 'slow-1');
+  assert.match(result.message, /50 seconds, 1 status query/);
+});
+
+test('pollUntilTerminal falls back to a 45 s budget for a non-finite timeout and reports real elapsed time', async () => {
+  const clock = fakeClock();
+  let queries = 0;
+  const result = await pollUntilTerminal({
+    taskId: 'fb-1',
+    timeoutSeconds: Number.NaN,
+    pollIntervalSeconds: 30,
+    continueHint: 'get_task_status',
+    now: clock.now,
+    delay: clock.delay,
+    fetchStatus: async () => {
+      queries++;
+      return { status: 'processing', payload: {} };
+    },
+  });
+  assert.equal(queries, 2);
+  assert.match(result.message, /45 seconds, 2 status queries/);
+});
+
+test('pollUntilTerminal keeps the truncated wait when a completed response arrives after the deadline', async () => {
+  const result = await pollUntilTerminal({
+    taskId: 'late-1',
+    timeoutSeconds: 1,
+    pollIntervalSeconds: 0.5,
+    continueHint: 'get_task_status',
+    fetchStatus: () =>
+      new Promise((resolve) => {
+        setTimeout(() => resolve({ status: 'completed', payload: { video_url: 'https://x/v.mp4' } }), 1300);
+      }),
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.status, 'processing');
+  assert.equal(result.video_url, undefined);
+});
+
+test('pollUntilTerminal cancels a real in-flight HTTP query at the budget edge and keeps task_id', async () => {
+  let abortedWithoutResponse = false;
+  let socketClosed = () => {};
+  const closed = new Promise((resolve) => { socketClosed = resolve; });
+  const server = http.createServer((req, res) => {
+    req.on('close', () => {
+      if (!res.writableEnded) abortedWithoutResponse = true;
+      socketClosed();
+    });
+    // Never respond: the socket stays open until the client aborts.
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  try {
+    const started = Date.now();
+    const result = await pollUntilTerminal({
+      taskId: 'http-1',
+      timeoutSeconds: 1,
+      pollIntervalSeconds: 0.5,
+      continueHint: 'get_task_status',
+      fetchStatus: (signal) => axios.get(`http://127.0.0.1:${port}/status`, { signal }),
+    });
+    const elapsed = Date.now() - started;
+    await Promise.race([closed, new Promise((resolve) => setTimeout(resolve, 500))]);
+    assert.equal(result.success, true);
+    assert.equal(result.status, 'processing');
+    assert.equal(result.task_id, 'http-1');
+    assert.ok(elapsed >= 900 && elapsed < 3500, `should cancel near the 1 s budget, took ${elapsed} ms`);
+    assert.ok(abortedWithoutResponse, 'the request should be cancelled without ever receiving a response');
+  } finally {
+    server.close();
+  }
 });

@@ -1,7 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { MAX_SYNC_WAIT_BUDGET_MS } from './service-config.js';
 
 // ---------------------------------------------------------------------------
 // Tool registration wrapper: business failures surface as MCP isError results
@@ -82,23 +81,53 @@ export interface PollParams {
   pollIntervalSeconds: number;
   fetchStatus: (signal: AbortSignal) => Promise<PollFetchResult>;
   continueHint: string;
+  /**
+   * Independent query-count limit: the first query counts, and the wait is
+   * truncated as soon as this many queries have been made while the task is
+   * still processing (no trailing sleep). Time and count limits run in
+   * parallel; whichever is exhausted first ends the wait.
+   */
+  maxAttempts?: number;
+  /** Injectable clock and delay for deterministic tests; defaults to real time. */
+  now?: () => number;
+  delay?: (ms: number) => Promise<void>;
+}
+
+function formatElapsedSeconds(ms: number): string {
+  const seconds = ms / 1000;
+  if (seconds >= 10) return `${Math.round(seconds)} seconds`;
+  return `${(Math.round(seconds * 10) / 10).toFixed(1)} seconds`;
 }
 
 /**
- * Deadline-aware polling: never sleeps past the deadline, aborts each status
- * request at the remaining wait budget, tolerates transient network failures,
- * treats unknown statuses as errors after a few sightings, and always keeps
- * task_id in the response so the task is never lost.
+ * Deadline- and attempt-aware polling: never sleeps past the deadline, aborts
+ * each status request at the remaining wait budget, tolerates transient
+ * network failures, treats unknown statuses as errors after a few sightings,
+ * and always keeps task_id in the response so the task is never lost.
+ * A cancellation fired at the budget edge is not counted as a query failure.
  */
 export async function pollUntilTerminal(params: PollParams): Promise<Record<string, any>> {
-  const timeoutSeconds = clampNumber(params.timeoutSeconds, 1, MAX_SYNC_WAIT_BUDGET_MS / 1000, MAX_SYNC_WAIT_BUDGET_MS / 1000);
-  const intervalMs = clampNumber(params.pollIntervalSeconds, 0.5, 30, 5) * 1000;
-  const deadline = Date.now() + timeoutSeconds * 1000;
+  const now = params.now ?? Date.now;
+  const delay = params.delay ?? sleep;
+  // Budget bounds are the caller's contract (tool schemas validate before task
+  // submission); a non-finite or sub-second budget falls back to the historical
+  // 45 s default rather than being silently rewritten to some other cap.
+  const timeoutSeconds =
+    Number.isFinite(params.timeoutSeconds) && params.timeoutSeconds >= 1 ? params.timeoutSeconds : 45;
+  const intervalMs =
+    Number.isFinite(params.pollIntervalSeconds) && params.pollIntervalSeconds >= 0.5
+      ? params.pollIntervalSeconds * 1000
+      : 5000;
+  const maxAttempts = params.maxAttempts === undefined ? Number.POSITIVE_INFINITY : Math.floor(params.maxAttempts);
+  const startedAt = now();
+  const deadline = startedAt + timeoutSeconds * 1000;
   let consecutiveFailures = 0;
   let unknownSightings = 0;
+  let attempts = 0;
 
-  while (Date.now() < deadline) {
-    const requestBudget = requestBudgetMs(deadline);
+  while (attempts < maxAttempts && now() < deadline) {
+    attempts++;
+    const requestBudget = requestBudgetMs(deadline, now());
     const controller = new AbortController();
     const abortTimer = setTimeout(() => controller.abort(), requestBudget);
     const budgetExceeded = new Promise<never>((_, reject) => {
@@ -114,6 +143,10 @@ export async function pollUntilTerminal(params: PollParams): Promise<Record<stri
       fetched = await Promise.race([params.fetchStatus(controller.signal), budgetExceeded]);
       consecutiveFailures = 0;
     } catch (error) {
+      if (now() >= deadline) {
+        // The request was cancelled by the wait budget, not by a query error.
+        break;
+      }
       consecutiveFailures++;
       if (consecutiveFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
         return {
@@ -124,7 +157,7 @@ export async function pollUntilTerminal(params: PollParams): Promise<Record<stri
           note: `The task has been created and may still be running. Use ${params.continueHint} with this task_id to follow up.`,
         };
       }
-      await sleep(remainingSleepMs(intervalMs, deadline));
+      await delay(remainingSleepMs(intervalMs, deadline, now()));
       continue;
     } finally {
       clearTimeout(abortTimer);
@@ -149,14 +182,19 @@ export async function pollUntilTerminal(params: PollParams): Promise<Record<stri
         };
       }
     }
-    await sleep(remainingSleepMs(intervalMs, deadline));
+    // Still processing: stop before exceeding either limit; no trailing sleep.
+    if (attempts >= maxAttempts || now() >= deadline) {
+      break;
+    }
+    await delay(remainingSleepMs(intervalMs, deadline, now()));
   }
 
+  const queryText = attempts === 1 ? '1 status query' : `${attempts} status queries`;
   return {
     success: true,
     status: 'processing',
     task_id: params.taskId,
-    message: `Task is still processing (waited ${timeoutSeconds} seconds). Please use ${params.continueHint} to continue polling.`,
+    message: `Task is still processing (waited ${formatElapsedSeconds(now() - startedAt)}, ${queryText}). Please use ${params.continueHint} to continue polling.`,
     note: 'The synchronous wait for this long-running task has been truncated. Switch to task status polling.',
   };
 }

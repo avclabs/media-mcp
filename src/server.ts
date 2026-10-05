@@ -11,8 +11,7 @@ import { fileURLToPath } from 'url';
 import { setupVideoEnhancementTools } from './video-enhancement.js';
 import { setupImageEnhancementTools } from './image-enhancement.js';
 import { setupSam3Tools } from './sam3.js';
-import { clampSam3WaitBudget, resolveImageBaseUrl } from './service-config.js';
-import { clampNumber } from './tooling.js';
+import { resolveImageBaseUrl } from './service-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,9 +64,15 @@ function loadConfig(explicitConfigPath?: string): ServerConfig {
   return { ...DEFAULT_CONFIG };
 }
 
+// Fail-closed: an explicitly configured wait parameter that is not an integer
+// inside [min, max] aborts startup before any task can be submitted.
 function parsePositiveInt(value: string | undefined, fallback: number, min: number, max: number): number {
-  const parsed = value === undefined ? NaN : Number.parseInt(value, 10);
-  return Math.round(clampNumber(parsed, min, max, fallback));
+  if (value === undefined) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+    throw new Error(`Invalid SAM3 wait configuration "${value}": expected an integer between ${min} and ${max}`);
+  }
+  return parsed;
 }
 
 // Main entry
@@ -118,20 +123,10 @@ async function main(): Promise<void> {
     }
   }
 
-  // SAM3's wait budget is a product (interval x attempts); keep it inside the
-  // sync wait cap up front, and only note the reduction when the user picked
-  // the values explicitly (the default product 2000 ms x 25 = 50 s is still
-  // silently truncated to the 45 s cap downstream, unchanged pre-existing
-  // behavior).
-  const sam3IntervalExplicit =
-    process.env.SAM3_POLL_INTERVAL_MS !== undefined ||
-    process.env.SAM3_POLL_INTERVAL !== undefined ||
-    args.includes('--sam3-poll-interval');
-  const sam3AttemptsExplicit =
-    process.env.SAM3_POLL_MAX_ATTEMPTS !== undefined || args.includes('--sam3-poll-max-attempts');
-  if (sam3IntervalExplicit || sam3AttemptsExplicit) {
-    sam3PollMaxAttempts = clampSam3WaitBudget(sam3PollInterval, sam3PollMaxAttempts, { note: console.error }).maxAttempts;
-  }
+  // SAM3's sync wait is bounded by two independent limits derived from its
+  // config: at most SAM3_POLL_MAX_ATTEMPTS status queries and a time budget of
+  // interval x attempts (default 25 x 2000 ms = 50 s). Whichever runs out
+  // first truncates the wait; the task keeps running remotely either way.
 
   if (!apiKey) {
     console.error('Error: --api-key argument or API_KEY environment variable is required');

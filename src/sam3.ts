@@ -216,6 +216,7 @@ async function sam3PredictTool(
     taskId,
     timeoutSeconds: (pollInterval * pollMaxAttempts) / 1000,
     pollIntervalSeconds: pollInterval / 1000,
+    maxAttempts: pollMaxAttempts,
     continueHint: 'get_sam3_task_status',
     fetchStatus: async (signal) => {
       const data = await getSam3Result(client, taskId, signal);

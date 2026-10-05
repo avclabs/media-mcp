@@ -17,7 +17,7 @@
 **视频增强**
 - `create_task` - 创建视频增强任务（支持 URL 或本地文件上传）
 - `get_task_status` - 查询任务状态
-- `enhance_video_sync` - 同步增强视频（阻塞等待，默认50秒截断）
+- `enhance_video_sync` - 同步增强视频（阻塞等待，默认45秒截断）
 
 **图片增强（尚未发布的 0.3.0 候选）**
 - `enhance_image_sync` - 图片画质增强与人脸优化（支持 URL 或本地文件上传）
@@ -130,7 +130,7 @@ AI 会自动完成：
 | `IMAGE_API_BASE_URL` | 否 | 与 `HTTP_API_BASE_URL` 相同 | 可选图片接口覆盖；共享生产服务无需配置 |
 | `SAM3_API_BASE_URL` | 否 | `https://mcp.avc.ai/sam` | SAM3 服务接口地址 |
 | `SAM3_POLL_INTERVAL_MS` | 否 | `2000` | SAM3 轮询间隔（毫秒，`SAM3_POLL_INTERVAL` 为已弃用别名） |
-| `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | SAM3 最大轮询次数 |
+| `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | SAM3 最大状态查询次数；时间预算为 间隔 × 次数，任一限制先耗尽即截断等待 |
 
 `IMAGE_API_BASE_URL` 由尚未发布的 `0.3.0` 候选作为可选覆盖实现。生产使用共享 `/enhance` 服务，因此通常应省略；候选客户端会把图片与视频请求解析到同一基址。
 
@@ -172,15 +172,15 @@ npx -y @avclabs.ai/media-mcp@0.3.0 --base-url https://your-media-endpoint.com --
 
 **视频增强**：
 - 调用 `enhance_video_sync` → 服务器内部自动轮询
-- 默认最多等待50秒
-- 如果50秒内完成，直接返回结果
-- 如果50秒未完成，返回 `task_id` 和提示，让 Agent 切换到 `get_task_status` 继续查询
+- 默认最多等待45秒
+- 如果45秒内完成，直接返回结果
+- 如果45秒未完成，返回 `task_id` 和提示，让 Agent 切换到 `get_task_status` 继续查询
 
 **图像分割 (SAM3)**：
 - 调用 `sam3_predict` → 服务器内部自动轮询
-- 默认最多等待50秒（25次 × 2秒轮询间隔）
-- 如果50秒内完成，直接返回分割结果
-- 如果50秒未完成，返回截断提示，告知任务仍在处理中
+- 默认最多25次状态查询、约50秒时间预算（25次 × 2秒间隔，任一限制先耗尽即截断等待）
+- 如果预算内完成，直接返回分割结果
+- 如果预算内未完成，返回携带 `task_id` 的截断提示，告知任务仍在处理中
 
 ## 使用示例
 
@@ -255,7 +255,7 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 
 同步增强视频（阻塞等待完成）。
 
-> **仅适合短视频（预计处理时间 < 1 分钟）。** 如果任务在50秒内未完成，工具会提前返回并包含 `task_id`，你需要使用 `get_task_status` 继续查询。
+> **仅适合短视频（预计处理时间 < 1 分钟）。** 如果任务在默认45秒等待预算内未完成，工具会提前返回并包含 `task_id`，你需要使用 `get_task_status` 继续查询。
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -265,13 +265,13 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 | `poll_interval` | number | 否 | `5` | 轮询间隔（秒，0.5-30） |
 | `timeout` | number | 否 | `45` | 同步等待超时时间（秒，1-45），超过后主动返回 |
 
-**截断返回示例（50秒未完成）：**
+**截断返回示例（默认45秒预算内未完成）：**
 ```json
 {
   "success": true,
   "status": "processing",
   "task_id": "xxx",
-  "message": "Task is still processing (waited 50 seconds). Please use get_task_status to continue polling.",
+  "message": "Task is still processing (waited 45 seconds, 9 status queries). Please use get_task_status to continue polling.",
   "note": "The synchronous wait for this long-running task has been truncated. Switch to get_task_status polling."
 }
 ```
@@ -319,13 +319,13 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 }
 ```
 
-**截断返回（50秒未完成）：**
+**截断返回（默认45秒预算内未完成）：**
 ```json
 {
   "success": true,
   "status": "processing",
   "task_id": "xxx",
-  "message": "Task is still processing (waited 50 seconds). Please use get_image_task_status to continue polling.",
+  "message": "Task is still processing (waited 45 seconds, 9 status queries). Please use get_image_task_status to continue polling.",
   "note": "The synchronous wait for this long-running task has been truncated. Switch to get_image_task_status polling."
 }
 ```
@@ -444,14 +444,14 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 }
 ```
 
-**截断返回示例（50秒未完成）：**
+**截断返回示例（预算内未完成）：**
 ```json
 {
   "success": true,
   "status": "processing",
   "task_id": "xxx",
-  "message": "Task is still processing (waited about 50 seconds). Please retry later or record this task_id for manual follow-up.",
-  "note": "The synchronous wait for this long-running task has been truncated."
+  "message": "Task is still processing (waited 50 seconds, 25 status queries). Please use get_sam3_task_status to continue polling.",
+  "note": "The synchronous wait for this long-running task has been truncated. Switch to task status polling."
 }
 ```
 
@@ -517,15 +517,11 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 
 1. **优先使用异步工具**：对于视频增强等耗时任务，始终使用 `create_task` + `get_task_status`。这些工具每次调用都是瞬间返回的，不会触发超时。
 
-2. **同步工具的截断机制**：`enhance_video_sync` 已在内部设置了50秒的截断限制。如果任务未在50秒内完成，工具会主动返回 `task_id`，并提示 Agent 使用 `get_task_status` 继续跟进。
+2. **同步工具的截断机制**：`enhance_video_sync` 已在内部设置了45秒的截断限制（默认 `timeout`）。如果任务未在预算内完成，工具会主动返回 `task_id`，并提示 Agent 使用 `get_task_status` 继续跟进。
 
-3. **SAM3 的截断机制**：`sam3_predict` 默认轮询25次（约50秒），如果任务未完成会返回截断提示，告知任务仍在处理中。
+3. **SAM3 的截断机制**：`sam3_predict` 受两个独立限制约束：最多 `SAM3_POLL_MAX_ATTEMPTS` 次状态查询（默认25次）和时间预算 `SAM3_POLL_INTERVAL_MS × 次数`（默认 25 × 2秒 ≈ 50秒）。任一限制先耗尽即截断等待；返回的提示携带 `task_id` 以及实际经过时间和查询次数，远端任务继续运行。
 
-4. **调整 SAM3 轮询参数**（高级）：如果你确定 SAM3 任务通常很快（例如10秒内），可以通过环境变量增加轮询次数：
-   ```bash
-   SAM3_POLL_MAX_ATTEMPTS=60
-   ```
-   但请确保总等待时间不超过 Agent 的超时限制。
+4. **调整 SAM3 轮询参数**（高级）：两个限制相互独立，可以自由权衡间隔与次数（例如 `SAM3_POLL_INTERVAL_MS=1000` 配合 `SAM3_POLL_MAX_ATTEMPTS=50`，仍是约50秒预算、但查询频率翻倍）。如果任务通常几秒内完成，调低间隔可以更快发现完成状态。显式配置的非法值（非整数或超出允许范围）会在启动时直接报错退出，不会提交任何任务。等待预算只覆盖任务创建后的状态轮询——源准备、上传、任务提交和最后的结果下载都不计入，因此整个工具调用可能长于预算。
 
 ### 拖拽附件后提示找不到文件？
 

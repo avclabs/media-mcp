@@ -26,7 +26,7 @@ const mock = http.createServer((req, res) => {
     };
     if (url.pathname === '/ok') return send({ masks: [], boxes: [], scores: [] });
     if (url.pathname === '/fail') return send({ code: 500, message: 'mock result download failure' }, 500);
-    if (url.pathname === '/sam/get_postsignature_url') {
+    if (url.pathname === '/sam/get_postsignature_url' || url.pathname === '/sam-wait/get_postsignature_url') {
       return send({
         code: 0,
         data: {
@@ -43,6 +43,10 @@ const mock = http.createServer((req, res) => {
     }
     if (url.pathname === '/result-fail.json') {
       return send({ code: 500, message: 'mock result download failure' }, 500);
+    }
+    if (url.pathname === '/sam-wait/predict') return send({ task_id: 'sam-1' });
+    if (url.pathname === '/sam-wait/predict/result/sam-1') {
+      return send({ status: 'processing' });
     }
     res.writeHead(404);
     res.end('not found');
@@ -122,4 +126,31 @@ test('sam3_predict keeps task_id when the completed result download fails (wired
   assert.notEqual(body.status, 'processing');
   assert.match(body.note, /get_sam3_task_status/);
   assert.match(body.note, /Do not resubmit/);
+});
+
+test('sam3_predict truncates at the attempt limit and keeps the processing result format', async () => {
+  const tools = new Map();
+  const fakeServer = {
+    tool: (name, _description, _schema, handler) => {
+      tools.set(name, handler);
+    },
+  };
+  setupSam3Tools(fakeServer, `http://127.0.0.1:${port}/sam-wait`, 'test-key', 500, 1);
+  const predict = tools.get('sam3_predict');
+  assert.ok(predict, 'sam3_predict must be registered');
+
+  const tinyPng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64');
+  const started = Date.now();
+  const result = await predict({ imageBase64: tinyPng, prompt: 'cat' });
+  const elapsed = Date.now() - started;
+  // registerTool only sets isError on failure; a truncated wait is a success result.
+  assert.equal(result.isError, undefined);
+  const body = JSON.parse(result.content[0].text);
+  assert.equal(body.success, true);
+  assert.equal(body.status, 'processing');
+  assert.equal(body.task_id, 'sam-1');
+  assert.match(body.message, /1 status query/);
+  assert.match(body.message, /get_sam3_task_status/);
+  // Attempt limit reached on the first query: no trailing wait.
+  assert.ok(elapsed < 2000, `should truncate immediately after one query, took ${elapsed}ms`);
 });

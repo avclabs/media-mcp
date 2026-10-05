@@ -19,7 +19,7 @@ Provides the following MCP Tools:
 **Video Enhancement**
 - `create_task` - Create a video enhancement task (supports URL or local file upload)
 - `get_task_status` - Query task status
-- `enhance_video_sync` - Synchronously enhance video (blocking wait, truncated at ~50s by default)
+- `enhance_video_sync` - Synchronously enhance video (blocking wait, truncated at ~45s by default)
 
 **Image Enhancement (unreleased 0.3.0 candidate)**
 - `enhance_image_sync` - Enhance image quality and optimize faces (supports URL or local file upload)
@@ -132,7 +132,7 @@ After restarting your client, check if the tools are available:
 | `IMAGE_API_BASE_URL` | No | Same as `HTTP_API_BASE_URL` | Optional image endpoint override; omit for the shared production server |
 | `SAM3_API_BASE_URL` | No | `https://mcp.avc.ai/sam` | SAM3 service endpoint |
 | `SAM3_POLL_INTERVAL_MS` | No | `2000` | SAM3 polling interval in milliseconds (`SAM3_POLL_INTERVAL` is a deprecated alias) |
-| `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | SAM3 maximum polling attempts |
+| `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | SAM3 maximum status queries; the time budget is interval × attempts, and whichever limit is hit first truncates the wait |
 
 `IMAGE_API_BASE_URL` is implemented by the unreleased `0.3.0` candidate as an optional override. Production uses the shared `/enhance` service, so it should normally be omitted; the candidate then resolves image and video calls to the same base URL.
 
@@ -174,15 +174,15 @@ This project provides both **synchronous** and **asynchronous** modes.
 
 **Video Enhancement:**
 - Call `enhance_video_sync` → the server polls internally
-- Defaults to a maximum wait of 50 seconds
-- If completed within 50 seconds, returns the result directly
-- If not completed within 50 seconds, returns `task_id` and instructions for the Agent to switch to `get_task_status`
+- Defaults to a maximum wait of 45 seconds
+- If completed within 45 seconds, returns the result directly
+- If not completed within 45 seconds, returns `task_id` and instructions for the Agent to switch to `get_task_status`
 
 **Image Segmentation (SAM3):**
 - Call `sam3_predict` → the server polls internally
-- Defaults to a maximum wait of 50 seconds (25 attempts × 2-second polling interval)
-- If completed within 50 seconds, returns the segmentation result directly
-- If not completed within 50 seconds, returns a truncation notice indicating the task is still processing
+- Defaults to at most 25 status queries within a ~50-second budget (25 × 2-second interval; whichever limit is reached first ends the wait)
+- If the task completes within the budget, returns the segmentation result directly
+- If not completed within the budget, returns a truncation notice (with `task_id`) indicating the task is still processing
 
 ## Usage Examples
 
@@ -257,7 +257,7 @@ The `message` field only appears when `status` is `processing`, prompting the Ag
 
 Synchronously enhance video (blocks until completion).
 
-> **Best for short videos (estimated processing time < 1 minute).** If the task is not completed within 50 seconds, the tool returns early with a `task_id`, and you need to use `get_task_status` to continue querying.
+> **Best for short videos (estimated processing time < 1 minute).** If the task is not completed within the default 45-second wait budget, the tool returns early with a `task_id`, and you need to use `get_task_status` to continue querying.
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
@@ -267,13 +267,13 @@ Synchronously enhance video (blocks until completion).
 | `poll_interval` | number | No | `5` | Poll interval (seconds, 0.5-30) |
 | `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
 
-**Truncated return example (not completed within 50s):**
+**Truncated return example (not completed within the default 45-second budget):**
 ```json
 {
   "success": true,
   "status": "processing",
   "task_id": "xxx",
-  "message": "Task is still processing (waited 50 seconds). Please use get_task_status to continue polling.",
+  "message": "Task is still processing (waited 45 seconds, 9 status queries). Please use get_task_status to continue polling.",
   "note": "The synchronous wait for this long-running task has been truncated. Switch to get_task_status polling."
 }
 ```
@@ -321,13 +321,13 @@ Synchronously enhance an image to improve quality and optimize faces.
 }
 ```
 
-**Truncated return (not completed within 50s):**
+**Truncated return (not completed within the default 45-second budget):**
 ```json
 {
   "success": true,
   "status": "processing",
   "task_id": "xxx",
-  "message": "Task is still processing (waited 50 seconds). Please use get_image_task_status to continue polling.",
+  "message": "Task is still processing (waited 45 seconds, 9 status queries). Please use get_image_task_status to continue polling.",
   "note": "The synchronous wait for this long-running task has been truncated. Switch to get_image_task_status polling."
 }
 ```
@@ -452,8 +452,8 @@ Example result JSON:
   "success": true,
   "status": "processing",
   "task_id": "xxx",
-  "message": "Task is still processing (waited about 50 seconds). Please retry later or record this task_id for manual follow-up.",
-  "note": "The synchronous wait for this long-running task has been truncated."
+  "message": "Task is still processing (waited 50 seconds, 25 status queries). Please use get_sam3_task_status to continue polling.",
+  "note": "The synchronous wait for this long-running task has been truncated. Switch to task status polling."
 }
 ```
 
@@ -519,11 +519,11 @@ This is the primary issue this project addresses. MCP Agents (such as Claude, Cu
 
 1. **Prefer asynchronous tools**: For video enhancement and other time-consuming tasks, always use `create_task` + `get_task_status`. These tools return instantly on each call and will not trigger timeouts.
 
-2. **Sync tool truncation mechanism**: `enhance_video_sync` has an internal 50-second truncation limit. If the task is not completed within 50 seconds, the tool proactively returns a `task_id` and instructs the Agent to use `get_task_status` to follow up.
+2. **Sync tool truncation mechanism**: `enhance_video_sync` has an internal 45-second truncation limit (default `timeout`). If the task is not completed within the budget, the tool proactively returns a `task_id` and instructs the Agent to use `get_task_status` to follow up.
 
-3. **SAM3 truncation mechanism**: `sam3_predict` defaults to 25 polling attempts (~50 seconds). If the task is not completed, it returns a truncation notice indicating the task is still processing.
+3. **SAM3 truncation mechanism**: `sam3_predict` is bounded by two independent limits derived from its config: at most `SAM3_POLL_MAX_ATTEMPTS` status queries (default 25) and a time budget of `SAM3_POLL_INTERVAL_MS × attempts` (default 25 × 2 s ≈ 50 s). Whichever runs out first truncates the wait; the returned notice carries the `task_id` and the actual elapsed time and query count, and the task keeps running remotely.
 
-4. **Adjust SAM3 polling parameters** (advanced): The SAM3 synchronous wait budget is capped at 45 seconds. If you expect SAM3 tasks to finish in about 10 seconds, keep the default settings; to trade interval for attempt count within the same budget, lower the interval instead (e.g. `SAM3_POLL_INTERVAL_MS=1000` with `SAM3_POLL_MAX_ATTEMPTS=45`). Raising `SAM3_POLL_MAX_ATTEMPTS` cannot extend the wait beyond the 45-second cap; when explicitly configured values exceed the cap, the server reduces the attempt count and prints a notice at startup.
+4. **Adjust SAM3 polling parameters** (advanced): The two SAM3 limits are independent, so you can trade interval for attempt count freely (e.g. `SAM3_POLL_INTERVAL_MS=1000` with `SAM3_POLL_MAX_ATTEMPTS=50` still gives a ~50-second budget with twice as many queries). Lower the interval if the task usually finishes in a few seconds and you want quicker completion detection. Invalid explicit values (non-integer or outside the allowed range) abort startup before any task can be submitted. The wait budget covers only status polling after the task is created — source preparation, upload, task submission, and the final result download are not part of it, so the total tool call can take longer than the budget.
 
 ### Drag-and-drop attachment says file not found?
 
