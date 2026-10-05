@@ -63,8 +63,19 @@ Prompt must be in English. If the user provides Chinese or other non-English tex
     'Query SAM3 image segmentation task status by task_id. Status can be: processing, completed, or failed. If completed, the result URL is returned.',
     GetSam3TaskStatusSchema.shape,
     async (args) => {
-      const data = await getSam3Result(client, args.task_id);
-      return normalizeSam3Status(args.task_id, data);
+      try {
+        const data = await getSam3Result(client, args.task_id);
+        return normalizeSam3Status(args.task_id, data);
+      } catch (error) {
+        // Keep task_id in every failure exit of the status tool, consistent
+        // with the polling failure shape.
+        return {
+          success: false,
+          task_id: args.task_id,
+          status: 'unknown',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
     }
   );
 }
@@ -199,6 +210,17 @@ async function getSam3Result(client: AxiosInstance, taskId: string, signal?: Abo
   const data = response.data;
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     throw new Error(`Unexpected task status response (HTTP ${response.status})`);
+  }
+  // The endpoint's success body shape is not confirmed against a live backend
+  // (envelope {code:0,data:{...}} or bare {status,...}); unwrap only when the
+  // body is shaped like an envelope, so auth/business errors surface with
+  // their real message instead of degrading to "Unrecognized task status".
+  if ('code' in data) {
+    const unwrapped = unwrapEnvelope(response, SAM3_SUCCESS_CODES);
+    if (!unwrapped.ok) {
+      throw new Error(`Task status request failed: ${unwrapped.error}`);
+    }
+    return unwrapped.data;
   }
   return data;
 }

@@ -1,6 +1,8 @@
 node_modules/
 dist/
 rmbg-ai-server/
+.workbuddy/
+.commandcode/
 *.log
 .env
 .env.local
@@ -17,3 +19,4 @@ test
 task_plan/
 scripts/*
 !scripts/check-release.mjs
+!scripts/e2e-check.mjs

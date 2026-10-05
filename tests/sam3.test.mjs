@@ -48,6 +48,11 @@ const mock = http.createServer((req, res) => {
     if (url.pathname === '/sam-wait/predict/result/sam-1') {
       return send({ status: 'processing' });
     }
+    if (url.pathname === '/sam-401/predict/result/sam-1') {
+      // P1-2: auth/business errors arrive as envelopes; the real message must
+      // surface instead of degrading to "Unrecognized task status".
+      return send({ code: 401, message: 'auth expired' }, 200);
+    }
     res.writeHead(404);
     res.end('not found');
   });
@@ -153,4 +158,19 @@ test('sam3_predict truncates at the attempt limit and keeps the processing resul
   assert.match(body.message, /get_sam3_task_status/);
   // Attempt limit reached on the first query: no trailing wait.
   assert.ok(elapsed < 2000, `should truncate immediately after one query, took ${elapsed}ms`);
+});
+
+test('get_sam3_task_status surfaces auth/business envelope errors with their real message', async () => {
+  const tools = new Map();
+  setupSam3Tools({ tool: (name, _description, _schema, handler) => tools.set(name, handler) }, `http://127.0.0.1:${port}/sam-401`, 'test-key', 500, 1);
+  const query = tools.get('get_sam3_task_status');
+  assert.ok(query, 'get_sam3_task_status must be registered');
+
+  const result = await query({ task_id: 'sam-1' });
+  assert.equal(result.isError, true);
+  const body = JSON.parse(result.content[0].text);
+  assert.equal(body.success, false);
+  assert.match(body.error, /auth expired/);
+  assert.doesNotMatch(body.error, /Unrecognized task status/);
+  assert.equal(body.task_id, 'sam-1');
 });

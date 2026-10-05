@@ -9,7 +9,7 @@ import {
   unwrapEnvelope,
   uploadToTos,
 } from './tos.js';
-import { POLL_REQUEST_TIMEOUT_MS, pollUntilTerminal, registerTool } from './tooling.js';
+import { classifyStatus, POLL_REQUEST_TIMEOUT_MS, pollUntilTerminal, registerTool } from './tooling.js';
 
 const PollIntervalSchema = z.number().min(0.5).max(30).default(5).describe('Polling interval in seconds (0.5-30), default 5');
 const SyncTimeoutSchema = z.number().min(1).max(45).default(45).describe('Synchronous wait timeout in seconds (1-45), default 45. Returns task_id early when exceeded, use get_image_task_status to continue polling');
@@ -109,6 +109,9 @@ Best for images with estimated processing time < 1 minute. If the task is not co
       const result = await getImageTaskStatus(client, args.task_id);
       return {
         ...result,
+        // registerTool marks isError on success===false: a terminal failed
+        // status is a failed query outcome, not a healthy poll tick.
+        success: classifyStatus(result.status) !== 'failed',
         message: result.status === 'processing' ? 'Task is still processing, please check again later' : undefined,
       };
     }

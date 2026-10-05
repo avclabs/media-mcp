@@ -19,3 +19,6 @@ jobs:
       - run: npm ci
 
       - run: npm run release:verify
+
+      # Self-contained stdio E2E against dist/ with a local mock backend.
+      - run: node scripts/e2e-check.mjs

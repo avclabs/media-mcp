@@ -130,11 +130,11 @@ test('decodeBase64Image rejects empty content', () => {
 
 // --- isPrivateIp ------------------------------------------------------------
 
-test('isPrivateIp flags loopback, RFC1918, link-local and reserved ranges', () => {
-  for (const ip of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '172.31.255.255', '192.168.1.1', '169.254.1.1', '0.0.0.0', '224.0.0.1', '::1', 'fe80::1', 'fd00::1', '::ffff:127.0.0.1']) {
+test('isPrivateIp flags loopback, RFC1918, CGNAT, benchmark, link-local and reserved ranges', () => {
+  for (const ip of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '172.31.255.255', '192.168.1.1', '169.254.1.1', '0.0.0.0', '224.0.0.1', '::1', 'fe80::1', 'fd00::1', '::ffff:127.0.0.1', '100.64.0.1', '100.100.100.200', '100.127.255.255', '198.18.0.1', '198.19.255.255']) {
     assert.equal(isPrivateIp(ip), true, `${ip} should be private`);
   }
-  for (const ip of ['8.8.8.8', '172.15.0.1', '172.32.0.1', '1.1.1.1']) {
+  for (const ip of ['8.8.8.8', '172.15.0.1', '172.32.0.1', '1.1.1.1', '100.63.255.255', '100.128.0.1', '198.17.255.255', '198.20.0.1']) {
     assert.equal(isPrivateIp(ip), false, `${ip} should be public`);
   }
 });
