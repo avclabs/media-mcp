@@ -574,7 +574,7 @@ When `type` is `"local"`:
 
 Install Node.js >= 18: https://nodejs.org/
 
-### "Error: --api-key argument or API_KEY environment variable is required"
+### "API key is required: pass --api-key or set the API_KEY environment variable"
 
 Your API Key is missing. Double-check the `env.API_KEY` in your config.
 

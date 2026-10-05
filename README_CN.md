@@ -572,7 +572,7 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 
 安装 Node.js >= 18：https://nodejs.org/
 
-### "Error: --api-key argument or API_KEY environment variable is required"
+### "API key is required: pass --api-key or set the API_KEY environment variable"
 
 API Key 缺失，请检查配置中的 `env.API_KEY`。
 

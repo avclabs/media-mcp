@@ -11,21 +11,16 @@ import { fileURLToPath } from 'url';
 import { setupVideoEnhancementTools } from './video-enhancement.js';
 import { setupImageEnhancementTools } from './image-enhancement.js';
 import { setupSam3Tools } from './sam3.js';
-import { resolveImageBaseUrl } from './service-config.js';
+import { MediaHostCliOverrides, resolveMediaHostConfig } from './service-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 interface ServerConfig {
-  baseUrl: string;
+  baseUrl?: string;
   imageBaseUrl?: string;
-  sam3BaseUrl: string;
+  sam3BaseUrl?: string;
 }
-
-const DEFAULT_CONFIG: ServerConfig = {
-  baseUrl: 'https://mcp.avc.ai/enhance',
-  sam3BaseUrl: 'https://mcp.avc.ai/sam',
-};
 
 function parseConfigFile(configPath: string): ServerConfig {
   let raw: string;
@@ -42,10 +37,11 @@ function parseConfigFile(configPath: string): ServerConfig {
     console.error(`Error: config file ${configPath} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
+  // Absent keys stay undefined; defaults are applied by resolveMediaHostConfig.
   return {
-    baseUrl: config.baseUrl || DEFAULT_CONFIG.baseUrl,
-    imageBaseUrl: config.imageBaseUrl || undefined,
-    sam3BaseUrl: config.sam3BaseUrl || DEFAULT_CONFIG.sam3BaseUrl,
+    baseUrl: typeof config.baseUrl === 'string' ? config.baseUrl : undefined,
+    imageBaseUrl: typeof config.imageBaseUrl === 'string' ? config.imageBaseUrl : undefined,
+    sam3BaseUrl: typeof config.sam3BaseUrl === 'string' ? config.sam3BaseUrl : undefined,
   };
 }
 
@@ -61,18 +57,26 @@ function loadConfig(explicitConfigPath?: string): ServerConfig {
   if (fs.existsSync(bundledPath)) {
     return parseConfigFile(bundledPath);
   }
-  return { ...DEFAULT_CONFIG };
+  return {};
 }
 
-// Fail-closed: an explicitly configured wait parameter that is not an integer
-// inside [min, max] aborts startup before any task can be submitted.
-function parsePositiveInt(value: string | undefined, fallback: number, min: number, max: number): number {
-  if (value === undefined) return fallback;
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
-    throw new Error(`Invalid SAM3 wait configuration "${value}": expected an integer between ${min} and ${max}`);
+// Collect CLI values without consulting the environment; precedence between
+// layers is resolved by resolveMediaHostConfig.
+function parseCliOverrides(args: string[]): MediaHostCliOverrides {
+  const overrides: MediaHostCliOverrides = {};
+  for (let i = 0; i < args.length; i++) {
+    const takeValue = (key: keyof MediaHostCliOverrides) => {
+      overrides[key] = args[i + 1];
+      i++;
+    };
+    if (args[i] === '--base-url' && i + 1 < args.length) takeValue('baseUrl');
+    else if (args[i] === '--image-base-url' && i + 1 < args.length) takeValue('imageBaseUrl');
+    else if (args[i] === '--api-key' && i + 1 < args.length) takeValue('apiKey');
+    else if (args[i] === '--sam3-base-url' && i + 1 < args.length) takeValue('sam3BaseUrl');
+    else if (args[i] === '--sam3-poll-interval' && i + 1 < args.length) takeValue('sam3PollIntervalMs');
+    else if (args[i] === '--sam3-poll-max-attempts' && i + 1 < args.length) takeValue('sam3PollMaxAttempts');
   }
-  return parsed;
+  return overrides;
 }
 
 // Main entry
@@ -86,52 +90,13 @@ async function main(): Promise<void> {
       break;
     }
   }
-  const config = loadConfig(explicitConfigPath);
-
-  let baseUrl = process.env.HTTP_API_BASE_URL || config.baseUrl;
-  let imageBaseUrl = process.env.IMAGE_API_BASE_URL || config.imageBaseUrl;
-  let apiKey = process.env.API_KEY || '';
-  let sam3BaseUrl = process.env.SAM3_API_BASE_URL || config.sam3BaseUrl;
-  // SAM3_POLL_INTERVAL_MS is the canonical name; SAM3_POLL_INTERVAL is kept as
-  // a deprecated alias. Both are milliseconds (unlike the per-tool
-  // poll_interval argument, which is seconds).
-  let sam3PollInterval = parsePositiveInt(process.env.SAM3_POLL_INTERVAL_MS ?? process.env.SAM3_POLL_INTERVAL, 2000, 500, 60000);
-  let sam3PollMaxAttempts = parsePositiveInt(process.env.SAM3_POLL_MAX_ATTEMPTS, 25, 1, 1000);
-
-  // Parse command line arguments
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--base-url' && i + 1 < args.length) {
-      baseUrl = args[i + 1];
-      i++;
-    } else if (args[i] === '--image-base-url' && i + 1 < args.length) {
-      imageBaseUrl = args[i + 1];
-      i++;
-    } else if (args[i] === '--api-key' && i + 1 < args.length) {
-      apiKey = args[i + 1];
-      i++;
-    } else if (args[i] === '--sam3-base-url' && i + 1 < args.length) {
-      sam3BaseUrl = args[i + 1];
-      i++;
-    } else if (args[i] === '--sam3-poll-interval' && i + 1 < args.length) {
-      sam3PollInterval = parsePositiveInt(args[i + 1], 2000, 500, 60000);
-      i++;
-    } else if (args[i] === '--sam3-poll-max-attempts' && i + 1 < args.length) {
-      sam3PollMaxAttempts = parsePositiveInt(args[i + 1], 25, 1, 1000);
-      i++;
-    } else if (args[i] === '--config' && i + 1 < args.length) {
-      i++;
-    }
-  }
+  const fileConfig = loadConfig(explicitConfigPath);
 
   // SAM3's sync wait is bounded by two independent limits derived from its
   // config: at most SAM3_POLL_MAX_ATTEMPTS status queries and a time budget of
   // interval x attempts (default 25 x 2000 ms = 50 s). Whichever runs out
   // first truncates the wait; the task keeps running remotely either way.
-
-  if (!apiKey) {
-    console.error('Error: --api-key argument or API_KEY environment variable is required');
-    process.exit(1);
-  }
+  const hostConfig = resolveMediaHostConfig({ cli: parseCliOverrides(args), env: process.env, file: fileConfig });
 
   const server = new McpServer(
     {
@@ -146,13 +111,13 @@ async function main(): Promise<void> {
   );
 
   // Register video enhancement tools
-  setupVideoEnhancementTools(server, baseUrl, apiKey);
+  setupVideoEnhancementTools(server, hostConfig.enhancementApiBaseUrl, hostConfig.apiKey);
 
   // Register image enhancement tools
-  setupImageEnhancementTools(server, resolveImageBaseUrl(imageBaseUrl, baseUrl), apiKey);
+  setupImageEnhancementTools(server, hostConfig.imageApiBaseUrl, hostConfig.apiKey);
 
   // Register SAM3 tools
-  setupSam3Tools(server, sam3BaseUrl, apiKey, sam3PollInterval, sam3PollMaxAttempts);
+  setupSam3Tools(server, hostConfig.sam3ApiBaseUrl, hostConfig.apiKey, hostConfig.sam3PollIntervalMs, hostConfig.sam3PollMaxAttempts);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
