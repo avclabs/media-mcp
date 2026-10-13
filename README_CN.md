@@ -8,7 +8,7 @@
 
 基于 MCP 协议的视频增强、图片增强/上色/降噪与图像分割服务，作为 MCP Client-Server 与后端 HTTP Server 交互。
 
-> **发布状态（2026-09-06）**：npm `latest` 为 `0.2.1`；该已发布包只有 5 个工具（视频 3 + SAM3 2），且运行时 metadata 错误地报告为 `0.3.0`。当前仓库是尚未发布的 `0.3.0` 候选，已修正版本一致性并新增图片 4 工具与可选的 `IMAGE_API_BASE_URL` 覆盖。图片和视频共用公共 HTTP Server 及 `/enhance` 基址；候选后端内部的准备并发、Redis 队列、worker 和处理并发保持分离。图片路由已存在于候选代码，但尚未部署和通过真实 AI/TOS 验证；在 9 工具冒烟全部通过且 `0.3.0` 正式发布前，下列图片工具不是生产 npm 能力。
+> **发布状态**：当前 npm `latest`（`0.2.1`）包含 3 个视频工具和 2 个 SAM3 工具。图片增强工具正在积极开发中，将在后续版本发布——下文已提前列出供尝鲜参考，但目前尚不包含在已发布的 npm 包中。
 
 ## 功能
 
@@ -19,7 +19,7 @@
 - `get_task_status` - 查询任务状态
 - `enhance_video_sync` - 同步增强视频（阻塞等待，默认45秒截断）
 
-**图片增强（尚未发布的 0.3.0 候选）**
+**图片增强（即将发布，暂不含于已发布的 npm 包）**
 - `enhance_image_sync` - 图片画质增强与人脸优化（支持 URL 或本地文件上传）
 - `colorize_image_sync` - 黑白照片上色（支持 URL 或本地文件上传）
 - `denoise_image_sync` - 图片降噪去噪（支持 URL 或本地文件上传）
@@ -119,7 +119,7 @@ AI 会自动完成：
 
 1. 或直接问 AI："你有哪些可用的工具？"
 2. 当前 npm `latest=0.2.1` 应看到 `create_task`、`get_task_status`、`enhance_video_sync`、`sam3_predict`、`get_sam3_task_status`。
-3. `0.3.0` 发布后还应看到 `enhance_image_sync`、`colorize_image_sync`、`denoise_image_sync`、`get_image_task_status`。
+3. 图片工具随后续版本发布后，还应能看到 `enhance_image_sync`、`colorize_image_sync`、`denoise_image_sync`、`get_image_task_status`。
 
 ## 配置项
 
@@ -132,9 +132,9 @@ AI 会自动完成：
 | `SAM3_POLL_INTERVAL_MS` | 否 | `2000` | SAM3 轮询间隔（毫秒，`SAM3_POLL_INTERVAL` 为已弃用别名） |
 | `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | SAM3 最大状态查询次数；时间预算为 间隔 × 次数，任一限制先耗尽即截断等待 |
 
-`IMAGE_API_BASE_URL` 由尚未发布的 `0.3.0` 候选作为可选覆盖实现。生产使用共享 `/enhance` 服务，因此通常应省略；候选客户端会把图片与视频请求解析到同一基址。
+`IMAGE_API_BASE_URL` 是可选的图片端点覆盖参数，用于把图片请求指向自定义图片服务。省略时，图片与视频请求共用 `HTTP_API_BASE_URL` 服务——这也是生产服务器的推荐配置。
 
-### 自定义服务地址（0.3.0 候选）
+### 自定义服务地址
 
 ```json
 {
@@ -148,10 +148,10 @@ AI 会自动完成：
 
 或通过命令行参数：
 ```bash
-npx -y @avclabs.ai/media-mcp@0.3.0 --base-url https://your-media-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
+npx -y @avclabs.ai/media-mcp@latest --base-url https://your-media-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
 
-仅在 `0.3.0` 发布后执行该命令。可选的 `--image-base-url` 只用于主动拆分公网图片端点的部署；npm `0.2.1` 不支持该参数。
+可选的 `--image-base-url` 参数仅用于主动拆分公网图片端点的部署；当前 npm `latest` 版本不使用它（图片请求共用主端点）。
 
 ## 推荐的工作流程
 
@@ -509,6 +509,26 @@ AI 会根据任务复杂度自动选择同步或异步工具完成任务。
 
 ## 常见问题
 
+### AVCLabs Media MCP 是免费的吗？
+
+注册即送免费额度，无需绑定信用卡。超出免费额度后按量付费：积分包（$19.95 起）和月订阅（$9.95/月起）。当前套餐见 https://mcp.avc.ai/pricing/ 。
+
+### 支持哪些 AI 客户端？
+
+任何兼容 MCP 的客户端。Claude Code、Cursor、Windsurf 有一键配置指南：https://mcp.avc.ai/docs/ （本包使用标准 MCP stdio 协议，其他 agent 使用相同的 `npx` 配置即可接入）。
+
+### 需要 GPU 或高性能硬件吗？
+
+不需要。视频增强与 SAM3 推理都在 AVCLabs 云端完成，本机只运行轻量的 MCP stdio 服务进程（Node.js 18+），普通笔记本即可。
+
+### API Key 在哪里获取？
+
+在 https://mcp.avc.ai/ 注册后在控制台创建。同一个 Key 同时用于视频增强、图片工具与 SAM3 分割。
+
+### `sam3_predict` 返回什么？
+
+文本提示所描述目标的像素级分割掩码（masks）、边界框（bounding boxes）和逐实例置信度分数——可直接用于合成、标注或后续分析。
+
 ### Agent 调用工具时报超时怎么办？
 
 这是本项目重点解决的问题。MCP Agent（如 Claude、Cursor）对单个 tool 调用通常有约 60 秒的超时限制。如果任务处理时间超过此限制，Agent 会报错并切断连接。
@@ -599,14 +619,14 @@ npm install -g @avclabs.ai/media-mcp
 
 ## 开发与发布
 
-本包运行在 MCP 客户端本机，并通过 npm 发布；它不是部署到远程服务器的 Node 常驻进程。同级 `media-mcp-api-http-server` 已作为共享 `/enhance` 视频/图片/账户 owner 上线，但当前生产 release 只实现视频路由；候选代码已增加图片路由、持久化 prepare/dispatch outbox、任务级积分幂等和图片/视频独立队列。Portal 也已上线，SAM3 仍是外部生产依赖。真实图片 AI/TOS E2E、候选后端生产发布和 SAM3 JSON health 尚未完成，因此现在不得发布 `0.3.0`。发布前运行：
+本包运行在 MCP 客户端本机，并通过 npm 发布；它不是部署到远程服务器的 Node 常驻进程。发布前验证工作区：
 
 ```bash
 npm ci
 npm run release:verify
 ```
 
-版本同步、发布顺序、冒烟测试以及与门户/后端部署的关系见[发布指南](https://github.com/avclabs/media-mcp/blob/main/docs/RELEASE.md)。
+维护者请查阅[发布指南](https://github.com/avclabs/media-mcp/blob/main/docs/RELEASE.md)了解当前发布状态、版本同步、发布顺序、冒烟测试以及与门户/后端部署的关系。
 
 ## License
 

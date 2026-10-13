@@ -1,7 +1,5 @@
 # media-mcp (Node.js)
 
-> Deployment update (2026-09-06): the SAM3 source and release scripts are now maintained in `sam3-http-server`, rooted at `/opt/ai/sam3`. API schema candidate head is `20260906_0007`. SAM3 production bootstrap and nine-tool E2E remain pending. See the [four-project rollout](https://github.com/avclabs/mcp-portal-web/blob/main/docs/FOUR-PROJECT-ROLLOUT.md).
-
 English | [中文](https://github.com/avclabs/media-mcp/blob/main/README_CN.md)
 
 [![npm version](https://img.shields.io/npm/v/@avclabs.ai/media-mcp)](https://www.npmjs.com/package/@avclabs.ai/media-mcp)
@@ -10,7 +8,7 @@ English | [中文](https://github.com/avclabs/media-mcp/blob/main/README_CN.md)
 
 A video enhancement, image enhancement/colorization/denoising, and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with backend HTTP Servers.
 
-> **Release status (2026-09-06):** npm `latest` is `0.2.1`; that published artifact contains 5 tools (3 video + 2 SAM3) and its runtime metadata incorrectly reports `0.3.0`. This repository is the unreleased `0.3.0` candidate, which fixes version consistency and adds 4 image tools plus an optional `IMAGE_API_BASE_URL` override. Image and video share the same public HTTP server and `/enhance` base URL; the candidate backend keeps their prepare concurrency, Redis queues, workers, and processing concurrency separate. The image routes now exist in candidate code but are not deployed or real-AI/TOS verified, so the image tools below are not a production npm capability until all 9 tools pass smoke tests and `0.3.0` is published.
+> **Release status:** the published npm package (`latest` = `0.2.1`) includes 3 video tools and 2 SAM3 tools. Image enhancement tools are in active development and will ship in an upcoming release — they are documented below for early adopters, but are not part of the published package yet.
 
 ## Features
 
@@ -21,7 +19,7 @@ Provides the following MCP Tools:
 - `get_task_status` - Query task status
 - `enhance_video_sync` - Synchronously enhance video (blocking wait, truncated at ~45s by default)
 
-**Image Enhancement (unreleased 0.3.0 candidate)**
+**Image Enhancement (coming soon — not in the published package yet)**
 - `enhance_image_sync` - Enhance image quality and optimize faces (supports URL or local file upload)
 - `colorize_image_sync` - Colorize black-and-white photos (supports URL or local file upload)
 - `denoise_image_sync` - Remove noise from images (supports URL or local file upload)
@@ -121,7 +119,7 @@ After restarting your client, check if the tools are available:
 
 1. Or ask: "What tools do you have available?"
 2. With the current npm `latest=0.2.1`, you should see `create_task`, `get_task_status`, `enhance_video_sync`, `sam3_predict`, and `get_sam3_task_status`.
-3. After `0.3.0` is published, you should additionally see `enhance_image_sync`, `colorize_image_sync`, `denoise_image_sync`, and `get_image_task_status`.
+3. Once the image tools ship in an upcoming release, you will additionally see `enhance_image_sync`, `colorize_image_sync`, `denoise_image_sync`, and `get_image_task_status`.
 
 ## Configuration Options
 
@@ -134,9 +132,9 @@ After restarting your client, check if the tools are available:
 | `SAM3_POLL_INTERVAL_MS` | No | `2000` | SAM3 polling interval in milliseconds (`SAM3_POLL_INTERVAL` is a deprecated alias) |
 | `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | SAM3 maximum status queries; the time budget is interval × attempts, and whichever limit is hit first truncates the wait |
 
-`IMAGE_API_BASE_URL` is implemented by the unreleased `0.3.0` candidate as an optional override. Production uses the shared `/enhance` service, so it should normally be omitted; the candidate then resolves image and video calls to the same base URL.
+`IMAGE_API_BASE_URL` is an optional override for pointing image calls at a custom image endpoint. When omitted, image and video calls share the `HTTP_API_BASE_URL` service — the recommended setup for the production server.
 
-### Custom Endpoint (0.3.0 candidate)
+### Custom Endpoint
 
 ```json
 {
@@ -150,10 +148,10 @@ After restarting your client, check if the tools are available:
 
 Or via CLI args:
 ```bash
-npx -y @avclabs.ai/media-mcp@0.3.0 --base-url https://your-media-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
+npx -y @avclabs.ai/media-mcp@latest --base-url https://your-media-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
 
-Run this command only after `0.3.0` is published. The optional `--image-base-url` remains available only for deployments that intentionally split the public image endpoint; npm `0.2.1` does not support it.
+The optional `--image-base-url` flag is available for deployments that intentionally split the public image endpoint; the current npm `latest` release does not use it (image calls share the main endpoint).
 
 ## Recommended Workflow
 
@@ -511,6 +509,26 @@ Query SAM3 segmentation task status. Used to poll for results when `sam3_predict
 
 ## FAQ
 
+### Is AVCLabs Media MCP free to use?
+
+You get a free quota when you register — no credit card required. Beyond the free quota, pricing is pay-as-you-go credit packs (from $19.95) and monthly subscriptions (from $9.95/month). See https://mcp.avc.ai/pricing/ for the current plans.
+
+### Which AI clients work with it?
+
+Any MCP-compatible client. One-command setup guides are available for Claude Code, Cursor, and Windsurf at https://mcp.avc.ai/docs/ (the package speaks standard MCP stdio, so other agents work by adding the same `npx` config).
+
+### Does it need a GPU or powerful hardware?
+
+No. Video enhancement and SAM3 inference run on AVCLabs' cloud infrastructure. Your machine only runs the lightweight MCP stdio server process (Node.js 18+), so a plain laptop is enough.
+
+### Where do I get an API key?
+
+Register at https://mcp.avc.ai/ and create a key in the dashboard. The key authenticates video enhancement, image tools, and SAM3 segmentation.
+
+### What does `sam3_predict` return?
+
+Pixel-level segmentation masks, bounding boxes, and per-instance confidence scores for the objects described by your text prompt — ready to plug into compositing, annotation, or further analysis.
+
 ### Agent reports timeout when calling tools?
 
 This is the primary issue this project addresses. MCP Agents (such as Claude, Cursor) typically enforce a ~60-second timeout per tool call. If task processing exceeds this limit, the Agent will error and disconnect.
@@ -601,14 +619,14 @@ Then use `"command": "media-mcp"` with `"args": ["--api-key", "your-api-key"]` i
 
 ## Development and Release
 
-This package runs locally in the MCP client and is released through npm; it is not a remote Node daemon. The sibling `media-mcp-api-http-server` is live as the shared `/enhance` video/image/account owner, although its current production release only implements video routes; candidate code adds the image routes, durable prepare/dispatch outboxes, task-level credit idempotency, and separate image/video queues. The Portal is live and SAM3 remains an external production dependency. Real image AI/TOS E2E, production backend rollout, and SAM3 JSON health are still pending, so `0.3.0` must not be published yet. Before publishing, run:
+This package runs locally in the MCP client and is released through npm; it is not a remote Node daemon. To verify a working tree before publishing:
 
 ```bash
 npm ci
 npm run release:verify
 ```
 
-See the [release guide](https://github.com/avclabs/media-mcp/blob/main/docs/RELEASE.md) for version synchronization, publish order, smoke tests, and the relationship with the portal/backend deployment.
+Maintainers: see the [release guide](https://github.com/avclabs/media-mcp/blob/main/docs/RELEASE.md) for the current release status, version synchronization, publish order, smoke tests, and the relationship with the portal/backend deployment.
 
 ## License
 
