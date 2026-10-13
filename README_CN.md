@@ -8,7 +8,7 @@
 
 基于 MCP 协议的视频增强、图片增强/上色/降噪与图像分割服务，作为 MCP Client-Server 与后端 HTTP Server 交互。
 
-> **发布状态**：当前 npm `latest`（`0.2.1`）包含 3 个视频工具和 2 个 SAM3 工具。图片增强工具正在积极开发中，将在后续版本发布——下文已提前列出供尝鲜参考，但目前尚不包含在已发布的 npm 包中。
+> **发布状态**：当前 npm `latest`（`0.3.0`）包含 9 个工具——3 个视频、4 个图片、2 个 SAM3——全部正式可用。
 
 ## 功能
 
@@ -19,7 +19,7 @@
 - `get_task_status` - 查询任务状态
 - `enhance_video_sync` - 同步增强视频（阻塞等待，默认45秒截断）
 
-**图片增强（即将发布，暂不含于已发布的 npm 包）**
+**图片增强**
 - `enhance_image_sync` - 图片画质增强与人脸优化（支持 URL 或本地文件上传）
 - `colorize_image_sync` - 黑白照片上色（支持 URL 或本地文件上传）
 - `denoise_image_sync` - 图片降噪去噪（支持 URL 或本地文件上传）
@@ -118,8 +118,7 @@ AI 会自动完成：
 重启客户端后，确认工具是否加载成功：
 
 1. 或直接问 AI："你有哪些可用的工具？"
-2. 当前 npm `latest=0.2.1` 应看到 `create_task`、`get_task_status`、`enhance_video_sync`、`sam3_predict`、`get_sam3_task_status`。
-3. 图片工具随后续版本发布后，还应能看到 `enhance_image_sync`、`colorize_image_sync`、`denoise_image_sync`、`get_image_task_status`。
+2. 当前 npm `latest=0.3.0` 应看到全部 9 个工具：`create_task`、`get_task_status`、`enhance_video_sync`、`enhance_image_sync`、`colorize_image_sync`、`denoise_image_sync`、`get_image_task_status`、`sam3_predict`、`get_sam3_task_status`。
 
 ## 配置项
 

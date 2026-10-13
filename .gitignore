@@ -20,3 +20,4 @@ task_plan/
 scripts/*
 !scripts/check-release.mjs
 !scripts/e2e-check.mjs
+*.mcpb

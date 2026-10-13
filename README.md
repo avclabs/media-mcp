@@ -8,7 +8,7 @@ English | [中文](https://github.com/avclabs/media-mcp/blob/main/README_CN.md)
 
 A video enhancement, image enhancement/colorization/denoising, and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with backend HTTP Servers.
 
-> **Release status:** the published npm package (`latest` = `0.2.1`) includes 3 video tools and 2 SAM3 tools. Image enhancement tools are in active development and will ship in an upcoming release — they are documented below for early adopters, but are not part of the published package yet.
+> **Release status:** the published npm package (`latest` = `0.3.0`) includes 9 tools — 3 video, 4 image, and 2 SAM3 — all production-ready.
 
 ## Features
 
@@ -19,7 +19,7 @@ Provides the following MCP Tools:
 - `get_task_status` - Query task status
 - `enhance_video_sync` - Synchronously enhance video (blocking wait, truncated at ~45s by default)
 
-**Image Enhancement (coming soon — not in the published package yet)**
+**Image Enhancement**
 - `enhance_image_sync` - Enhance image quality and optimize faces (supports URL or local file upload)
 - `colorize_image_sync` - Colorize black-and-white photos (supports URL or local file upload)
 - `denoise_image_sync` - Remove noise from images (supports URL or local file upload)
@@ -118,8 +118,7 @@ Or edit `~/.cursor/mcp.json`:
 After restarting your client, check if the tools are available:
 
 1. Or ask: "What tools do you have available?"
-2. With the current npm `latest=0.2.1`, you should see `create_task`, `get_task_status`, `enhance_video_sync`, `sam3_predict`, and `get_sam3_task_status`.
-3. Once the image tools ship in an upcoming release, you will additionally see `enhance_image_sync`, `colorize_image_sync`, `denoise_image_sync`, and `get_image_task_status`.
+2. With the current npm `latest=0.3.0`, you should see all 9 tools: `create_task`, `get_task_status`, `enhance_video_sync`, `enhance_image_sync`, `colorize_image_sync`, `denoise_image_sync`, `get_image_task_status`, `sam3_predict`, and `get_sam3_task_status`.
 
 ## Configuration Options
 
