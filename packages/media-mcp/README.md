@@ -1,0 +1,634 @@
+# media-mcp (Node.js, legacy all-in-one)
+
+English | [中文](https://github.com/avclabs/media-mcp/blob/main/packages/media-mcp/README_CN.md)
+
+> **Maintenance note:** this package bundles all 9 tools in one server. New integrations should prefer the per-function packages — [@avclabs.ai/video-mcp](../../video-mcp), [@avclabs.ai/image-mcp](../../image-mcp), and [@avclabs.ai/sam3-mcp](../../sam3-mcp) — so each MCP client session only loads the tool definitions it needs. This all-in-one server stays available and configuration-compatible; see the [repo README](https://github.com/avclabs/media-mcp#readme) for the migration matrix.
+
+[![npm version](https://img.shields.io/npm/v/@avclabs.ai/media-mcp)](https://www.npmjs.com/package/@avclabs.ai/media-mcp)
+[![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A video enhancement, image enhancement/colorization/denoising, and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with backend HTTP Servers.
+
+> **Release status:** the published npm package (`latest` = `0.3.0`) includes 9 tools — 3 video, 4 image, and 2 SAM3 — all production-ready.
+
+## Features
+
+Provides the following MCP Tools:
+
+**Video Enhancement**
+- `create_task` - Create a video enhancement task (supports URL or local file upload)
+- `get_task_status` - Query task status
+- `enhance_video_sync` - Synchronously enhance video (blocking wait, truncated at ~45s by default)
+
+**Image Enhancement**
+- `enhance_image_sync` - Enhance image quality and optimize faces (supports URL or local file upload)
+- `colorize_image_sync` - Colorize black-and-white photos (supports URL or local file upload)
+- `denoise_image_sync` - Remove noise from images (supports URL or local file upload)
+- `get_image_task_status` - Query image task status (for polling after sync timeout)
+
+**Image Segmentation (SAM3)**
+- `sam3_predict` - SAM3 image segmentation (supports local path, URL, or Base64 image)
+- `get_sam3_task_status` - Query SAM3 task status (for polling after sync timeout)
+
+## Prerequisites
+
+- **Node.js >= 18** (check: `node --version`)
+- **API Key** (required for authentication)
+
+## Lazy Install (Recommended)
+
+If your AI Agent has a known MCP config path, just copy the line below and send it to your AI:
+
+```
+Install the npm package @avclabs.ai/media-mcp as an MCP server. My API Key is: sk-xxxxxxxx.
+```
+
+The AI will automatically:
+1. Detect your MCP client
+2. Find the config file path
+3. Write the correct configuration
+4. Prompt you to restart the client
+
+## Manual Install
+
+No installation needed. Use `npx` directly in your MCP client config.
+
+### 1. Claude Code (CLI)
+
+Run in Claude Code:
+
+```
+/mcp
+```
+
+Check the output for the **"User MCPs"** section to find the config file path, then edit that file.
+
+Common paths (if `/mcp` is unavailable):
+- **Windows**: `%USERPROFILE%\.claude.json`
+- **macOS**: `~/.claude.json`
+- **Linux**: `~/.claude.json`
+- **Legacy/Alternative**: `~/.claude/mcp.json`
+
+Paste this (replace `your-api-key`):
+
+```json
+{
+  "mcpServers": {
+    "video-enhancement": {
+      "command": "npx",
+      "args": ["-y", "@avclabs.ai/media-mcp@latest"],
+      "env": {
+        "API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+Save and run `/mcp` to verify it's loaded.
+
+### 2. Cursor
+
+Go to **Settings > Tools & MCPs > Add New MCP Server**:
+
+- **Name**: `video-enhancement`
+- **Type**: `command`
+- **Command**:
+  ```bash
+  env API_KEY=your-api-key npx -y @avclabs.ai/media-mcp@latest
+  ```
+
+Or edit `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "video-enhancement": {
+      "command": "npx",
+      "args": ["-y", "@avclabs.ai/media-mcp@latest"],
+      "env": {
+        "API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+## Verify Installation
+
+After restarting your client, check if the tools are available:
+
+1. Or ask: "What tools do you have available?"
+2. With the current npm `latest=0.3.0`, you should see all 9 tools: `create_task`, `get_task_status`, `enhance_video_sync`, `enhance_image_sync`, `colorize_image_sync`, `denoise_image_sync`, `get_image_task_status`, `sam3_predict`, and `get_sam3_task_status`.
+
+## Configuration Options
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `API_KEY` | **Yes** | - | API authentication key (shared by video, image, and SAM3 services) |
+| `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Shared video and image HTTP service endpoint |
+| `IMAGE_API_BASE_URL` | No | Same as `HTTP_API_BASE_URL` | Optional image endpoint override; omit for the shared production server |
+| `SAM3_API_BASE_URL` | No | `https://mcp.avc.ai/sam` | SAM3 service endpoint |
+| `SAM3_POLL_INTERVAL_MS` | No | `2000` | SAM3 polling interval in milliseconds (`SAM3_POLL_INTERVAL` is a deprecated alias) |
+| `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | SAM3 maximum status queries; the time budget is interval × attempts, and whichever limit is hit first truncates the wait |
+
+`IMAGE_API_BASE_URL` is an optional override for pointing image calls at a custom image endpoint. When omitted, image and video calls share the `HTTP_API_BASE_URL` service — the recommended setup for the production server.
+
+### Custom Endpoint
+
+```json
+{
+  "env": {
+    "HTTP_API_BASE_URL": "https://your-media-endpoint.com",
+    "API_KEY": "your-api-key",
+    "SAM3_API_BASE_URL": "https://your-sam3-endpoint.com"
+  }
+}
+```
+
+Or via CLI args:
+```bash
+npx -y @avclabs.ai/media-mcp@latest --base-url https://your-media-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
+```
+
+The optional `--image-base-url` flag is available for deployments that intentionally split the public image endpoint; the current npm `latest` release does not use it (image calls share the main endpoint).
+
+## Recommended Workflow
+
+This project provides both **synchronous** and **asynchronous** modes.
+
+**Because MCP Agents typically enforce a ~60-second timeout per tool call**, tasks with longer processing times (video enhancement) are strongly recommended to use **asynchronous mode**:
+
+### Asynchronous Mode (Recommended)
+
+**Video Enhancement:**
+1. Call `create_task` to create a task → immediately get `task_id`
+2. Wait a few seconds, then call `get_task_status` to query the status
+3. If `status` is `processing`, continue waiting and repeat step 2
+4. If `status` is `completed`, the task is done and the result contains `video_url`
+5. If `status` is `failed`, the task failed and the result contains `error_message`
+
+### Synchronous Mode (Simple Scenarios)
+
+**Video Enhancement:**
+- Call `enhance_video_sync` → the server polls internally
+- Defaults to a maximum wait of 45 seconds
+- If completed within 45 seconds, returns the result directly
+- If not completed within 45 seconds, returns `task_id` and instructions for the Agent to switch to `get_task_status`
+
+**Image Segmentation (SAM3):**
+- Call `sam3_predict` → the server polls internally
+- Defaults to at most 25 status queries within a ~50-second budget (25 × 2-second interval; whichever limit is reached first ends the wait)
+- If the task completes within the budget, returns the segmentation result directly
+- If not completed within the budget, returns a truncation notice (with `task_id`) indicating the task is still processing
+
+## Usage Examples
+
+Once configured, ask your AI agent naturally:
+
+> "Enhance this video to 1080p: https://example.com/video.mp4"
+
+> "Improve the quality of /Users/me/Desktop/video.mp4 to 2k"
+
+> "Enhance this image: https://example.com/photo.jpg"
+
+> "Colorize this black-and-white photo: /Users/me/Desktop/old_photo.png"
+
+> "Remove noise from this image: C:\\Users\\xxx\\noisy.jpg"
+
+> "Analyze this image and find all objects: C:\\Users\\xxx\\photo.png"
+
+> "Use SAM3 to segment this image, prompt: 'find all cars'"
+
+The agent will automatically choose sync or async tools based on task complexity.
+
+## Provided Tools
+
+### Video Enhancement
+
+#### create_task
+
+Create an asynchronous video enhancement task.
+
+> **Recommended for most use cases.** Ideal for longer videos (over 10 seconds) to avoid timeouts and blocking the connection.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `video_source` | string | Yes | - | Video URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
+| `type` | string | No | `url` | `url` or `local` |
+| `resolution` | string | No | `720p` | `480p`, `540p`, `720p`, `1080p`, `2k` |
+
+**Returns:**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "processing"
+}
+```
+
+#### get_task_status
+
+Query video enhancement task status.
+
+> The returned `status` field can be: `processing`, `completed`, or `failed`. If `status` is `processing`, you need to wait a few seconds and call this tool again.
+
+| Parameter | Type | Required |
+|---|---|---|
+| `task_id` | string | Yes |
+
+**Returns:**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "completed",
+  "progress": 100,
+  "video_url": "https://...",
+  "message": "Task is still processing, please check again later"
+}
+```
+
+The `message` field only appears when `status` is `processing`, prompting the Agent to continue waiting.
+
+#### enhance_video_sync
+
+Synchronously enhance video (blocks until completion).
+
+> **Best for short videos (estimated processing time < 1 minute).** If the task is not completed within the default 45-second wait budget, the tool returns early with a `task_id`, and you need to use `get_task_status` to continue querying.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `video_source` | string | Yes | - | Video URL or local file path |
+| `type` | string | No | `url` | `url` or `local` |
+| `resolution` | string | No | `720p` | Target resolution |
+| `poll_interval` | number | No | `5` | Poll interval (seconds, 0.5-30) |
+| `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
+
+**Truncated return example (not completed within the default 45-second budget):**
+```json
+{
+  "success": true,
+  "status": "processing",
+  "task_id": "xxx",
+  "message": "Task is still processing (waited 45 seconds, 9 status queries). Please use get_task_status to continue polling.",
+  "note": "The synchronous wait for this long-running task has been truncated. Switch to get_task_status polling."
+}
+```
+
+### Image Enhancement
+
+Three image processing tools are provided, each targeting a specific use case:
+
+| Tool | Function | Use Case |
+|---|---|---|
+| `enhance_image_sync` | Image quality enhancement & face optimization | Blurry, low-resolution, or degraded photos |
+| `colorize_image_sync` | Black-and-white photo colorization | Restoring old B&W photos with realistic colors |
+| `denoise_image_sync` | Image noise removal | Noisy/grainy photos taken in low light |
+
+All three tools share the same parameters and behavior pattern. They are **synchronous** — the tool blocks until the image is processed or the timeout is reached.
+
+**Supported image formats**: PNG, JPG, JPEG, BMP, WebP, etc.
+
+**Two upload methods**:
+1. **URL upload**: provide a publicly accessible image URL (`type: "url"`)
+2. **Local upload**: provide a local file path, the MCP Server auto-uploads to TOS object storage (`type: "local"`, max file size: 100MB)
+
+#### enhance_image_sync
+
+Synchronously enhance an image to improve quality and optimize faces.
+
+> The tool internally creates a task and polls for the result. If processing completes within the timeout (default 45s), the result is returned directly. If not, the tool returns early with a `task_id` — use `get_image_task_status` to continue polling.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `image_source` | string | Yes | - | Image URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
+| `type` | string | No | `url` | `url` or `local` |
+| `scale` | number | No | `2` | Enhancement scale multiplier (e.g. `2` for 2x, `4` for 4x upscaling) |
+| `poll_interval` | number | No | `5` | Poll interval in seconds (0.5-30) |
+| `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
+
+**Normal completion return:**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "completed",
+  "progress": 100,
+  "image_url": "https://..."
+}
+```
+
+**Truncated return (not completed within the default 45-second budget):**
+```json
+{
+  "success": true,
+  "status": "processing",
+  "task_id": "xxx",
+  "message": "Task is still processing (waited 45 seconds, 9 status queries). Please use get_image_task_status to continue polling.",
+  "note": "The synchronous wait for this long-running task has been truncated. Switch to get_image_task_status polling."
+}
+```
+
+#### colorize_image_sync
+
+Synchronously colorize a black-and-white photo with AI.
+
+> Best for old black-and-white photos. The AI will add realistic colors to the image. Supports the same parameters and return format as `enhance_image_sync`.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `image_source` | string | Yes | - | Image URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
+| `type` | string | No | `url` | `url` or `local` |
+| `poll_interval` | number | No | `5` | Poll interval in seconds (0.5-30) |
+| `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
+
+**Returns:** Same format as `enhance_image_sync`.
+
+#### denoise_image_sync
+
+Synchronously remove noise from an image.
+
+> Best for grainy/noisy photos taken in low-light conditions or with high ISO settings. Supports the same parameters and return format as `enhance_image_sync`.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `image_source` | string | Yes | - | Image URL or local file path (URL must be publicly accessible, links requiring login or signatures are not supported) |
+| `type` | string | No | `url` | `url` or `local` |
+| `poll_interval` | number | No | `5` | Poll interval in seconds (0.5-30) |
+| `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
+
+**Returns:** Same format as `enhance_image_sync`.
+
+#### get_image_task_status
+
+Query image processing task status. Used to poll for results when a sync tool times out.
+
+> The returned `status` field can be: `processing`, `completed`, or `failed`. If `status` is `processing`, wait a few seconds and call this tool again.
+
+| Parameter | Type | Required |
+|---|---|---|
+| `task_id` | string | Yes |
+
+**Returns:**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "completed",
+  "progress": 100,
+  "image_url": "https://...",
+  "message": "Task is still processing, please check again later"
+}
+```
+
+The `message` field only appears when `status` is `processing`, prompting the Agent to continue waiting.
+
+#### Recommended Workflow for Image Tools
+
+1. **For most images**: Call `enhance_image_sync` / `colorize_image_sync` / `denoise_image_sync` directly — the tool handles everything and returns the result
+2. **If truncated**: The tool returns a `task_id`, then use `get_image_task_status` to poll until `status` becomes `completed` or `failed`
+3. **If failed**: Check the `error_message` field for details
+
+### Image Segmentation (SAM3)
+
+#### sam3_predict
+
+Analyze an image using the SAM3 segmentation API to generate inference results (masks, boxes, scores).
+
+**Parameters:**
+
+Image input (choose one, must provide exactly one):
+
+- `imagePath` (string): Absolute path of a local image file. Supports common formats (PNG, JPG, JPEG).
+  - Example: `"C:\\Users\\xxx\\photo.png"`, `"/home/user/images/cat.jpg"`
+  - Use when: The user explicitly provides a local file path
+
+- `imageUrl` (string): Publicly accessible URL of the image.
+  - Example: `"https://example.com/photo.jpg"`
+  - Use when: The image is already online and the user provides a link
+  - Note: The URL must be publicly accessible. Links requiring login or signatures are not supported
+
+- `imageBase64` (string): Base64-encoded image data.
+  - Example: `"iVBORw0KGgoAAAANSUhEUgAA..."`
+  - Use when: The user drags or uploads an image attachment, and the Agent encodes it as base64
+  - Note: Large images will produce very large base64 strings, which may slow transmission
+
+Other parameters:
+
+- `prompt` (string, required): English text prompt specifying the target object to segment. Since the SAM3 model only accepts English prompts, provide an English description. If the user provides Chinese or other non-English text, the Agent will automatically translate it before calling the tool.
+
+**Normal completion return:**
+
+After inference completes, returns a JSON string containing three fields:
+
+- **`masks`**: 2D array. Each element is a binary mask (values 0 or 1) with the same dimensions as the input image, marking the pixel-level location of detected objects. The i-th mask corresponds to the i-th detected object instance.
+- **`boxes`**: 2D array. Each element is a bounding box in `[x1, y1, x2, y2]` format, representing the rectangular region of the detected object. `x1`, `y1` are the top-left coordinates; `x2`, `y2` are the bottom-right coordinates.
+
+  Coordinate system: The top-left corner of the image is the origin `(0, 0)`. The x-axis increases to the right, and the y-axis increases downward, in pixels. For example, `[120, 80, 300, 450]` means the region starts 120px from the left edge and 80px from the top edge, extending to 300px from the left and 450px from the top. Width = `x2 - x1 = 180px`, Height = `y2 - y1 = 370px`.
+- **`scores`**: 1D array. Each element is a confidence score for the corresponding detection result, ranging from 0 to 1. Higher scores indicate greater model confidence.
+
+Example result JSON:
+
+```json
+{
+  "masks": [
+    [[0, 0, 1, ...], [0, 1, 1, ...], ...],
+    [[0, 0, 0, ...], [0, 0, 1, ...], ...]
+  ],
+  "boxes": [
+    [120, 80, 300, 450],
+    [400, 200, 600, 500]
+  ],
+  "scores": [0.95, 0.87]
+}
+```
+
+**Truncated return example (not completed within 50s):**
+```json
+{
+  "success": true,
+  "status": "processing",
+  "task_id": "xxx",
+  "message": "Task is still processing (waited 50 seconds, 25 status queries). Please use get_sam3_task_status to continue polling.",
+  "note": "The synchronous wait for this long-running task has been truncated. Switch to task status polling."
+}
+```
+
+**Result download failure (completed task, missing result):**
+If the task completed but the result file could not be downloaded, the tool returns `success: false` with the `task_id` and `status: "completed"`. Use `get_sam3_task_status` with that `task_id` to recover the result. Do not resubmit the task.
+```json
+{
+  "success": false,
+  "task_id": "xxx",
+  "status": "completed",
+  "error": "Failed to download the completed result for task xxx: ...",
+  "note": "The task has completed; only the result download failed. Do not resubmit. Use get_sam3_task_status with this task_id to recover the result."
+}
+```
+
+#### get_sam3_task_status
+
+Query SAM3 segmentation task status. Used to poll for results when `sam3_predict` times out.
+
+> The returned `status` field can be: `processing`, `completed`, or `failed`. If `status` is `processing`, wait a few seconds and call this tool again.
+
+| Parameter | Type | Required |
+|---|---|---|
+| `task_id` | string | Yes |
+
+**Completed return:**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "completed",
+  "result_url": "https://..."
+}
+```
+
+**Processing return:**
+```json
+{
+  "success": true,
+  "task_id": "xxx",
+  "status": "processing",
+  "message": "Task is still processing, please check again later."
+}
+```
+
+**Failed return:**
+```json
+{
+  "success": false,
+  "task_id": "xxx",
+  "status": "failed",
+  "error": "Task failed"
+}
+```
+
+## FAQ
+
+### Is AVCLabs Media MCP free to use?
+
+You get a free quota when you register — no credit card required. Beyond the free quota, pricing is pay-as-you-go credit packs (from $19.95) and monthly subscriptions (from $9.95/month). See https://mcp.avc.ai/pricing/ for the current plans.
+
+### Which AI clients work with it?
+
+Any MCP-compatible client. One-command setup guides are available for Claude Code, Cursor, and Windsurf at https://mcp.avc.ai/docs/ (the package speaks standard MCP stdio, so other agents work by adding the same `npx` config).
+
+### Does it need a GPU or powerful hardware?
+
+No. Video enhancement and SAM3 inference run on AVCLabs' cloud infrastructure. Your machine only runs the lightweight MCP stdio server process (Node.js 18+), so a plain laptop is enough.
+
+### Where do I get an API key?
+
+Register at https://mcp.avc.ai/ and create a key in the dashboard. The key authenticates video enhancement, image tools, and SAM3 segmentation.
+
+### What does `sam3_predict` return?
+
+Pixel-level segmentation masks, bounding boxes, and per-instance confidence scores for the objects described by your text prompt — ready to plug into compositing, annotation, or further analysis.
+
+### Agent reports timeout when calling tools?
+
+This is the primary issue this project addresses. MCP Agents (such as Claude, Cursor) typically enforce a ~60-second timeout per tool call. If task processing exceeds this limit, the Agent will error and disconnect.
+
+**Solutions:**
+
+1. **Prefer asynchronous tools**: For video enhancement and other time-consuming tasks, always use `create_task` + `get_task_status`. These tools return instantly on each call and will not trigger timeouts.
+
+2. **Sync tool truncation mechanism**: `enhance_video_sync` has an internal 45-second truncation limit (default `timeout`). If the task is not completed within the budget, the tool proactively returns a `task_id` and instructs the Agent to use `get_task_status` to follow up.
+
+3. **SAM3 truncation mechanism**: `sam3_predict` is bounded by two independent limits derived from its config: at most `SAM3_POLL_MAX_ATTEMPTS` status queries (default 25) and a time budget of `SAM3_POLL_INTERVAL_MS × attempts` (default 25 × 2 s ≈ 50 s). Whichever runs out first truncates the wait; the returned notice carries the `task_id` and the actual elapsed time and query count, and the task keeps running remotely.
+
+4. **Adjust SAM3 polling parameters** (advanced): The two SAM3 limits are independent, so you can trade interval for attempt count freely (e.g. `SAM3_POLL_INTERVAL_MS=1000` with `SAM3_POLL_MAX_ATTEMPTS=50` still gives a ~50-second budget with twice as many queries). Lower the interval if the task usually finishes in a few seconds and you want quicker completion detection. Invalid explicit values (non-integer or outside the allowed range) abort startup before any task can be submitted. The wait budget covers only status polling after the task is created — source preparation, upload, task submission, and the final result download are not part of it, so the total tool call can take longer than the budget.
+
+### Drag-and-drop attachment says file not found?
+
+This is a known limitation of stdio MCP. When dragging or uploading an attachment through the Agent interface, the file path is usually not automatically passed to the MCP Server.
+
+**Solutions:**
+
+1. **Provide the path simultaneously** (recommended): After dragging the image, add the local absolute path in your message:
+   > "Please analyze this image `D:\\photos\\cat.jpg` and find the cat"
+
+2. **Wait for auto-encoding**: Claude may automatically encode the image as base64. If successful, no extra action is needed.
+
+3. **Reply to path inquiry**: If Claude asks for the image path, simply reply with the local absolute path.
+
+### Is there a priority among the three input methods?
+
+There is no strict priority. Claude will automatically choose the most appropriate method based on conversation context:
+
+- You provided a local path → uses `imagePath`
+- You provided a web link → uses `imageUrl`
+- You dragged an attachment without a path → tries `imageBase64`
+
+### What image formats are supported?
+
+Common formats: PNG, JPG, JPEG, BMP, WebP, etc. PNG or JPG is recommended.
+
+### What if URL image download fails?
+
+Ensure the URL is **publicly accessible**, requiring no login, cookies, or signatures. If the image is on a service requiring authentication (e.g., private S3 Bucket, login-required image host), download it locally first and use `imagePath`.
+
+### What if the base64 image is too large?
+
+If the image is very large (e.g., 4K resolution), the base64-encoded data will be very large and may slow transmission. Suggestions:
+
+1. Use `imagePath` instead
+2. Or compress the image before encoding
+
+## File Upload Notes
+
+When `type` is `"local"`:
+1. File is read locally by the MCP Server
+2. Uploaded directly to TOS object storage via pre-signed URL
+3. **Max file size: 100MB**
+
+## Troubleshooting
+
+### "command not found: npx"
+
+Install Node.js >= 18: https://nodejs.org/
+
+### "API key is required: pass --api-key or set the API_KEY environment variable"
+
+Your API Key is missing. Double-check the `env.API_KEY` in your config.
+
+### MCP Server shows red/error in client
+
+Check logs:
+- **Claude Desktop macOS**: `~/Library/Logs/Claude/mcp*.log`
+- **Claude Desktop Windows**: `%APPDATA%\Claude\logs\mcp*.log`
+- **Cursor**: Output panel > MCP
+
+### "TOS upload failed"
+
+Usually a signature mismatch. Ensure your `IMAGE_API_BASE_URL` (or its `HTTP_API_BASE_URL` fallback) and `API_KEY` are correct and active.
+
+## Global Install (Alternative)
+
+If you prefer not using `npx` every time:
+
+```bash
+npm install -g @avclabs.ai/media-mcp
+```
+
+Then use `"command": "media-mcp"` with `"args": ["--api-key", "your-api-key"]` in your config.
+
+## Development and Release
+
+This package runs locally in the MCP client and is released through npm; it is not a remote Node daemon. To verify a working tree before publishing:
+
+```bash
+npm ci
+npm run release:verify
+```
+
+Maintainers: see the [release guide](https://github.com/avclabs/media-mcp/blob/main/docs/RELEASE.md) for the current release status, version synchronization, publish order, smoke tests, and the relationship with the portal/backend deployment.
+
+## License
+
+MIT License - See [LICENSE](LICENSE) file for details

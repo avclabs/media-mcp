@@ -1,60 +1,96 @@
 # 发布说明
 
-2026-09-06 补充：SAM3 源码与发布脚本已纳入独立仓库，固定部署于 `/opt/ai/sam3`；
-API 候选 schema head 为 `20260906_0007`。SAM3 首次 bootstrap、真实任务及九工具
-联调尚待完成，npm 0.3.0 继续保持候选。执行顺序见
+2026-10-17 更新：仓库已拆分为 npm workspaces monorepo（ADR
+[0001](adr/0001-split-into-per-function-packages.md)）。发布单元从 1 个 npm 包变为 5 个：
+
+| 包 | 版本起点 | 说明 |
+|---|---|---|
+| `@avclabs.ai/media-mcp-core` | 0.1.0 | 内部共享库，必须最先发布 |
+| `@avclabs.ai/video-mcp` | 0.1.0 | 视频增强（3 工具），bin `video-mcp` |
+| `@avclabs.ai/image-mcp` | 0.1.0 | 图片增强/上色/降噪（4 工具），bin `image-mcp` |
+| `@avclabs.ai/sam3-mcp` | 0.1.0 | SAM3 分割（2 工具），bin `sam3-mcp` |
+| `@avclabs.ai/media-mcp` | 继承 0.3.0 | 旧版全量包（9 工具），存量配置兼容 |
+
+三个分体包是新的 semver 生命周期，从 0.1.0 起独立演进；旧包下一次发布为 0.4.0
+（基于新结构重建，作为共享结构的冒烟验证）。`0.3.0` 已发布（含图片工具，正式可用）。
+
+历史补充（2026-09-06）：SAM3 源码与发布脚本已纳入独立仓库，固定部署于 `/opt/ai/sam3`；
+API 候选 schema head 为 `20260906_0007`。执行顺序见
 [四项目发布清单](https://github.com/avclabs/mcp-portal-web/blob/main/docs/FOUR-PROJECT-ROLLOUT.md)。
 
-`media-mcp` 是 stdio MCP server：它运行在用户的 Claude、Cursor 等客户端机器上，通过 HTTPS 调用 `mcp.avc.ai/enhance` 和 `mcp.avc.ai/sam`。生产交付物是 npm 包，不是部署到 Web 服务器的 Node 常驻进程。
-
-## 当前状态（2026-09-06）
-
-- npm registry `latest=0.2.1`；发布包包含视频 3 + SAM3 2 个工具，没有图片工具。该包的运行时 metadata 错误报告 `0.3.0`，但 npm/lock 版本为 `0.2.1`。
-- 当前仓库版本 `0.3.0` 尚未发布，已修正版本一致性并新增图片 4 工具、`IMAGE_API_BASE_URL` 和发布门禁。
-- 生产 `/enhance` API 与 Portal 已上线；共享 FastAPI 的候选代码已实现图片路由、图片/视频独立队列、双 outbox 和积分幂等，但尚未发布或通过真实图片 AI/TOS E2E，`/sam/health` 也尚未提供门禁要求的 JSON health，因此不能发布 9 工具 `0.3.0`。
-- Portal 仓库的 API/组合脚本还要求 compatibility health。npm `0.2.1` 不产生图片请求，所以该要求不是 npm 存量兼容义务；删除前仍需盘点 GitHub release、私有 tarball 和 MCP 目录等非 npm 分发渠道。
+这些包是 stdio MCP server：运行在用户的 Claude、Cursor 等客户端机器上，通过 HTTPS 调用 `mcp.avc.ai/enhance` 和 `mcp.avc.ai/sam`。生产交付物是 npm 包，不是部署到 Web 服务器的 Node 常驻进程。
 
 ## 发布前置条件
 
 - Node.js 18 或更高版本。
 - npm 组织 `@avclabs.ai` 的发布权限和有效 2FA/token。
-- 同级 `media-mcp-api-http-server` 的视频/图片/账户接口以及外部 SAM3 服务已部署，并保持对 `0.2.1` 和候选版本向后兼容。
-- `config.json.imageBaseUrl` 保持为空，`package.json` 不设置 `IMAGE_API_BASE_URL`，使视频和图片默认共用通过验收的生产 `/enhance`。
-- `main` 工作区干净，版本号尚未存在于 npm registry。
+- 同级 `media-mcp-api-http-server` 的视频/图片/账户接口以及外部 SAM3 服务已部署，并保持对已发布版本的向后兼容。
+- 各包 `config.json` 保持现状（image 包的 `imageBaseUrl` 为 `null`，走回落契约），生产默认端点由代码默认值提供。
+- `main` 工作区干净，待发布版本号尚未存在于 npm registry。
 
 ## 版本位置
 
-版本号目前存在于以下位置，必须同步：
+每个包的版本号存在于以下位置，必须同步（`npm run check:release` 会逐一校验）：
 
-- `package.json`
-- `package-lock.json` 顶层与根 package
-- `server.json` 顶层与 `packages[0]`
-- `src/server.ts` 的 MCP server metadata
+- `packages/<pkg>/package.json`
+- `package-lock.json` 中 `packages/packages/<pkg>` 条目
+- `packages/<pkg>/src/server.ts` 的 `SERVER_VERSION` 字面量（core 除外，无 server）
+- 仅旧版包：根 `server.json` 顶层与 `packages[0]`
+- 服务器包对 `@avclabs.ai/media-mcp-core` 的 `^` 依赖范围必须被 workspace 内 core 版本满足
 
 修改后运行 `npm run check:release`。该检查用于阻止版本漂移；当前不自动改版本，避免发布脚本悄悄修改源码。
 
 ## 发布流程
 
+在干净检出上执行：
+
 ```bash
-npm ci
-npm run release:verify
+npm ci                # 安装 workspaces 并构建全部包
+npm run release:verify   # 版本门禁 + 生产依赖审计 + 全部测试 + 各包 npm pack --dry-run
+node scripts/e2e-check.mjs  # 四个 server 入口的 stdio E2E（mock 后端）
 npm login
-npm publish --access public
 ```
 
-`release:verify` 会校验所有版本位置、阻断 high 及以上的生产依赖漏洞、编译 TypeScript，并用 `npm pack --dry-run` 展示将要发布的文件。确认产物只包含 `dist/`、配置和公开文档，不含 `.env`、日志、测试数据或凭据。
-
-发布成功后：
+发布顺序固定为 **core → video-mcp / image-mcp / sam3-mcp → media-mcp（旧版）**——
+core 必须先于依赖它的服务器包出现在 registry：
 
 ```bash
-git tag v<version>
-git push origin v<version>
+npm publish --access public -w packages/core
+npm publish --access public -w packages/video-mcp
+npm publish --access public -w packages/image-mcp
+npm publish --access public -w packages/sam3-mcp
+npm publish --access public -w packages/media-mcp
+```
+
+`release:verify` 的 `npm pack --dry-run --workspaces` 会展示每个包将发布的文件。
+确认产物只包含各包的 `dist/`、`config.json`、`LICENSE` 和 README，不含 `.env`、日志、
+测试数据或凭据。
+
+发布成功后，每个发布的包打独立 tag 并推送：
+
+```bash
+git tag core-v<version>            # 例如 core-v0.1.0
+git tag video-mcp-v<version>       # 例如 video-mcp-v0.1.0
+git push origin <tag>
+```
+
+冒烟测试（每个发布的 server 包执行一次，应成功启动 stdio server 并在真实 MCP 客户端
+确认工具数量：video 3 / image 4 / sam3 2 / 旧版 9，再各执行一次低成本任务）：
+
+```bash
+npx -y -p @avclabs.ai/video-mcp@<version> video-mcp --api-key <temporary-key>
+npx -y -p @avclabs.ai/image-mcp@<version> image-mcp --api-key <temporary-key>
+npx -y -p @avclabs.ai/sam3-mcp@<version>  sam3-mcp  --api-key <temporary-key>
 npx -y @avclabs.ai/media-mcp@<version> --api-key <temporary-key>
 ```
 
-最后一条命令应成功启动 stdio server；再在真实 MCP 客户端中确认 9 个工具均可见，并执行一次低成本任务。
+非 npm 分发渠道需同步：`dist-bundles/*.mcpb` 是旧版包的手工产物（分体包暂不自动产
+`.mcpb`，需要时用同一手工流程）；GitHub release、私有 tarball 等渠道在发布公告时一
+并通知。MCP registry 限制（每仓库一个 `server.json`，仍指向旧版包）见 ADR 0001。
 
-## 与门户/后端的发布顺序
+## 与门户/后端的发布顺序（历史记录，2026-09-06；0.3.0 已按此顺序发布完成）
+
+以下为 `0.3.0` 发布前的后端协同顺序，保留作历史记录；其中的"候选 0.3.0"均指当时状态：
 
 1. 保持已经上线的 `/enhance` API 和 Portal，通过 `0.2.1` 验证视频与 SAM3 存量契约。
 2. 在隔离环境验证同一 FastAPI/JobServer 已完成的图片创建、状态、`image_url`、图片能力 health、双 outbox 和图片/视频独立处理链；为外部 SAM3 增加 JSON health。若非 npm 渠道确有旧候选客户端，再部署 compatibility adapter。
