@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ConfigError, resolveMediaHostConfig } from '../dist/service-config.js';
+import { ConfigError, resolveMediaHostConfig } from '../dist/config.js';
 
 function expectConfigError(fn, messagePart) {
   assert.throws(fn, (error) => error instanceof ConfigError && error.message.includes(messagePart));

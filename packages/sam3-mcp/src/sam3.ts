@@ -5,13 +5,16 @@ import * as path from 'path';
 import { z } from 'zod';
 import {
   checkLocalFile,
+  classifyStatus,
   decodeBase64Image,
   downloadToBuffer,
   parseTosSignature,
+  POLL_REQUEST_TIMEOUT_MS,
+  pollUntilTerminal,
+  registerTool,
   unwrapEnvelope,
   uploadToTos,
-} from './tos.js';
-import { classifyStatus, POLL_REQUEST_TIMEOUT_MS, pollUntilTerminal, registerTool } from './tooling.js';
+} from '@avclabs.ai/media-mcp-core';
 
 const SAM3_SUCCESS_CODES = new Set([0]);
 

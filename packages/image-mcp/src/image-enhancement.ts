@@ -4,12 +4,15 @@ import * as fs from 'fs';
 import { z } from 'zod';
 import {
   checkLocalFile,
+  classifyStatus,
   formatRequestError,
   parseTosSignature,
+  POLL_REQUEST_TIMEOUT_MS,
+  pollUntilTerminal,
+  registerTool,
   unwrapEnvelope,
   uploadToTos,
-} from './tos.js';
-import { classifyStatus, POLL_REQUEST_TIMEOUT_MS, pollUntilTerminal, registerTool } from './tooling.js';
+} from '@avclabs.ai/media-mcp-core';
 
 const PollIntervalSchema = z.number().min(0.5).max(30).default(5).describe('Polling interval in seconds (0.5-30), default 5');
 const SyncTimeoutSchema = z.number().min(1).max(45).default(45).describe('Synchronous wait timeout in seconds (1-45), default 45. Returns task_id early when exceeded, use get_image_task_status to continue polling');

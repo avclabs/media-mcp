@@ -1,76 +1,27 @@
 {
+  "name": "media-mcp-monorepo",
+  "version": "0.0.0",
+  "private": true,
   "type": "module",
-  "name": "@avclabs.ai/media-mcp",
-  "version": "0.3.0",
-  "description": "MCP Server for video enhancement, image enhancement/colorization/denoising, and image segmentation (SAM3)",
-  "mcpName": "io.github.avclabs/media-mcp",
-  "main": "dist/server.js",
-  "types": "dist/server.d.ts",
-  "bin": {
-    "media-mcp": "dist/server.js"
-  },
-  "files": [
-    "dist",
-    "config.json",
-    "LICENSE",
-    "README.md",
-    "README_CN.md"
+  "description": "Monorepo for the AVCLabs media MCP servers: per-function packages (video, image, SAM3), a shared core, and the legacy all-in-one server",
+  "workspaces": [
+    "packages/*"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build -w packages/core && npm run build -w packages/video-mcp && npm run build -w packages/image-mcp && npm run build -w packages/sam3-mcp && npm run build -w packages/media-mcp",
     "check:release": "node scripts/check-release.mjs",
-    "dev": "tsc --watch",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run build",
-    "test": "npm run build && node --test tests/*.test.mjs",
-    "release:verify": "npm run check:release && npm audit --omit=dev --audit-level=high && npm test && npm pack --dry-run"
+    "test": "npm run build && node --test packages/core/tests/*.test.mjs packages/video-mcp/tests/*.test.mjs packages/image-mcp/tests/*.test.mjs packages/sam3-mcp/tests/*.test.mjs packages/media-mcp/tests/*.test.mjs",
+    "release:verify": "npm run check:release && npm audit --omit=dev --audit-level=high && npm test && npm pack --dry-run --workspaces"
   },
-  "keywords": [
-    "mcp",
-    "model-context-protocol",
-    "video",
-    "image",
-    "enhancement",
-    "colorization",
-    "denoising",
-    "http",
-    "client",
-    "server",
-    "claude",
-    "anthropic"
-  ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/avclabs/media-mcp.git"
   },
-  "bugs": {
-    "url": "https://github.com/avclabs/media-mcp/issues"
-  },
-  "homepage": "https://github.com/avclabs/media-mcp#readme",
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "axios": "^1.7.0",
-    "form-data": "^4.0.5",
-    "zod": "^3.23.0"
-  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.4.0"
-  },
-  "mcpServer": {
-    "command": "npx",
-    "args": [
-      "-y",
-      "@avclabs.ai/media-mcp@latest"
-    ],
-    "env": {
-      "API_KEY": "your-api-key",
-      "HTTP_API_BASE_URL": "https://mcp.avc.ai/enhance",
-      "SAM3_API_BASE_URL": "https://mcp.avc.ai/sam"
-    },
-    "description": "视频增强 + 图片增强/上色/降噪 + SAM3 图像分割 MCP 服务",
-    "setup": "需要替换 env.API_KEY 为你的 API Key"
   },
   "engines": {
     "node": ">=18.0.0"

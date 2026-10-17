@@ -1,0 +1,66 @@
+{
+  "type": "module",
+  "name": "@avclabs.ai/video-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for AVCLabs video enhancement: create_task, get_task_status, enhance_video_sync",
+  "mcpName": "io.github.avclabs/video-mcp",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "video-mcp": "dist/server.js"
+  },
+  "files": [
+    "dist",
+    "config.json",
+    "LICENSE",
+    "README.md",
+    "README_CN.md"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "video",
+    "enhancement",
+    "server"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/avclabs/media-mcp.git",
+    "directory": "packages/video-mcp"
+  },
+  "dependencies": {
+    "@avclabs.ai/media-mcp-core": "^0.1.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "axios": "^1.7.0",
+    "zod": "^3.23.0"
+  },
+  "mcpServer": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "-p",
+      "@avclabs.ai/video-mcp",
+      "video-mcp"
+    ],
+    "env": {
+      "API_KEY": "your-api-key",
+      "HTTP_API_BASE_URL": "https://mcp.avc.ai/enhance"
+    },
+    "description": "AVCLabs 视频增强 MCP 服务（create_task / get_task_status / enhance_video_sync）",
+    "setup": "需要替换 env.API_KEY 为你的 API Key"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
