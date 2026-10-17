@@ -40,13 +40,25 @@ test('SAM3 wait values come from env with the canonical name taking precedence o
 });
 
 test('invalid SAM3 wait values fail closed before any task can be submitted', () => {
-  for (const raw of ['abc', '499', '60001', '0', '1001', '2.5']) {
-    const isInterval = ['499', '60001', 'abc', '2.5'].includes(raw);
-    const boundsName = isInterval ? 'SAM3_POLL_INTERVAL_MS' : 'SAM3_POLL_MAX_ATTEMPTS';
+  // Each case names the parameter it must be rejected against — non-integers
+  // (e.g. "2.5", "1000abc") fail on both parameters, not just the interval.
+  const cases = [
+    { raw: 'abc', interval: true },
+    { raw: '499', interval: true },
+    { raw: '60001', interval: true },
+    { raw: '2.5', interval: true },
+    { raw: '2000.7', interval: true },
+    { raw: '0', interval: false },
+    { raw: '1001', interval: false },
+    { raw: '2.5', interval: false },
+    { raw: '1000abc', interval: false },
+  ];
+  for (const { raw, interval } of cases) {
+    const boundsName = interval ? 'SAM3_POLL_INTERVAL_MS' : 'SAM3_POLL_MAX_ATTEMPTS';
     expectConfigError(
       () =>
         resolveSam3Config({
-          cli: isInterval ? { sam3PollIntervalMs: raw } : { sam3PollMaxAttempts: raw },
+          cli: interval ? { sam3PollIntervalMs: raw } : { sam3PollMaxAttempts: raw },
           env: { API_KEY: 'k' },
         }),
       boundsName

@@ -42,6 +42,11 @@ export function parseBoundedInt(
   fallback: number
 ): number {
   if (raw === undefined) return fallback;
+  // Number.parseInt would silently truncate "2.5" or "1000abc"; a value that
+  // is not a canonical base-10 integer fails closed instead.
+  if (!/^-?\d+$/.test(raw.trim())) {
+    throw new ConfigError(`Invalid ${name} "${raw}": expected an integer between ${bounds.min} and ${bounds.max}`);
+  }
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed < bounds.min || parsed > bounds.max) {
     throw new ConfigError(`Invalid ${name} "${raw}": expected an integer between ${bounds.min} and ${bounds.max}`);

@@ -43,8 +43,9 @@
 }
 ```
 
-注意必须用 `-p <包名> <bin>` 的形式：这些包安装的是命名可执行文件，直接
-`npx -y <包名>` 会运行默认 bin。各包 README（[视频](packages/video-mcp/README_CN.md)、
+每个包只带一个与包同名的 bin，直接 `npx -y <包名>` 同样可以运行；示例统一用显式的
+`-p <包名> <bin>` 形式，是为了固定要运行的确切二进制，不受包内 bin 集合演进影响。
+各包 README（[视频](packages/video-mcp/README_CN.md)、
 [图片](packages/image-mcp/README_CN.md)、[SAM3](packages/sam3-mcp/README_CN.md)）
 包含 Claude Code、Cursor 与全局安装的完整步骤，以及各自读取的配置变量。
 

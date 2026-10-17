@@ -51,6 +51,12 @@ for (const { dir, name, hasServer } of packages) {
     if (!fs.existsSync(path.join(projectRoot, sourcePath))) {
       fail(`packages/${dir}: bin ${binName} -> ${binTarget} has no matching source at ${sourcePath}`)
     }
+    // The declared bin target must exist as a built artifact. npm ci links
+    // workspace bins only when dist/ already exists, so the link itself is
+    // not a reliable signal; the built entry is.
+    if (!fs.existsSync(path.join(projectRoot, 'packages', dir, binTarget))) {
+      fail(`packages/${dir}: bin ${binName} -> ${binTarget} has no built artifact (run npm ci or npm run build first)`)
+    }
   }
 
   if (hasServer) {

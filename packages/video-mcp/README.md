@@ -22,8 +22,9 @@ client session only loads the video tool definitions.
 
 ## Install
 
-Use `npx` directly in your MCP client config. The package installs a named
-`video-mcp` binary, so the config uses the `-p <package> <bin>` form.
+Use `npx` directly in your MCP client config. The package ships a single
+`video-mcp` bin (plain `npx -y @avclabs.ai/video-mcp` works too); the snippets
+use the explicit `-p <package> <bin>` form to pin the exact binary.
 
 ### Claude Code (CLI)
 

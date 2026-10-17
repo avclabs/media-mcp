@@ -53,6 +53,10 @@ const mock = http.createServer((req, res) => {
       // surface instead of degrading to "Unrecognized task status".
       return send({ code: 401, message: 'auth expired' }, 200);
     }
+    if (url.pathname === '/sam-failed/predict/result/sam-1') {
+      // A terminal failed status must surface as isError through registerTool.
+      return send({ status: 'failed', error_message: 'GPU worker exploded' });
+    }
     res.writeHead(404);
     res.end('not found');
   });
@@ -173,4 +177,19 @@ test('get_sam3_task_status surfaces auth/business envelope errors with their rea
   assert.match(body.error, /auth expired/);
   assert.doesNotMatch(body.error, /Unrecognized task status/);
   assert.equal(body.task_id, 'sam-1');
+});
+
+test('get_sam3_task_status marks a terminal failed status as isError', async () => {
+  const tools = new Map();
+  setupSam3Tools({ tool: (name, _description, _schema, handler) => tools.set(name, handler) }, `http://127.0.0.1:${port}/sam-failed`, 'test-key', 500, 1);
+  const query = tools.get('get_sam3_task_status');
+  assert.ok(query, 'get_sam3_task_status must be registered');
+
+  const result = await query({ task_id: 'sam-1' });
+  assert.equal(result.isError, true);
+  const body = JSON.parse(result.content[0].text);
+  assert.equal(body.success, false);
+  assert.equal(body.status, 'failed');
+  assert.equal(body.task_id, 'sam-1');
+  assert.equal(body.error, 'GPU worker exploded');
 });

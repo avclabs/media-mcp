@@ -22,8 +22,9 @@ AVCLabs 图片增强/上色/降噪 MCP server——一个包只提供一个功�
 
 ## 安装
 
-无需安装，直接在 MCP 客户端配置中用 `npx` 运行。本包安装的是命名可执行文件
-`image-mcp`，因此配置必须使用 `-p <包名> <bin>` 形式。
+无需安装，直接在 MCP 客户端配置中用 `npx` 运行。本包只带一个 `image-mcp` bin（直接
+`npx -y @avclabs.ai/image-mcp` 也能运行）；以下配置统一用显式的 `-p <包名> <bin>`
+形式固定要运行的 bin。
 
 ### Claude Code（CLI）
 

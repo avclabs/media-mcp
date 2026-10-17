@@ -2,7 +2,7 @@
 
 English | [中文](https://github.com/avclabs/media-mcp/blob/main/packages/media-mcp/README_CN.md)
 
-> **Maintenance note:** this package bundles all 9 tools in one server. New integrations should prefer the per-function packages — [@avclabs.ai/video-mcp](../../video-mcp), [@avclabs.ai/image-mcp](../../image-mcp), and [@avclabs.ai/sam3-mcp](../../sam3-mcp) — so each MCP client session only loads the tool definitions it needs. This all-in-one server stays available and configuration-compatible; see the [repo README](https://github.com/avclabs/media-mcp#readme) for the migration matrix.
+> **Maintenance note:** this package bundles all 9 tools in one server. New integrations should prefer the per-function packages — [@avclabs.ai/video-mcp](../video-mcp), [@avclabs.ai/image-mcp](../image-mcp), and [@avclabs.ai/sam3-mcp](../sam3-mcp) — so each MCP client session only loads the tool definitions it needs. This all-in-one server stays available and configuration-compatible; see the [repo README](https://github.com/avclabs/media-mcp#readme) for the migration matrix.
 
 [![npm version](https://img.shields.io/npm/v/@avclabs.ai/media-mcp)](https://www.npmjs.com/package/@avclabs.ai/media-mcp)
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)

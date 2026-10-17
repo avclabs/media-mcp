@@ -21,8 +21,9 @@ client session only loads the SAM3 tool definitions.
 
 ## Install
 
-Use `npx` directly in your MCP client config. The package installs a named
-`sam3-mcp` binary, so the config uses the `-p <package> <bin>` form.
+Use `npx` directly in your MCP client config. The package ships a single
+`sam3-mcp` bin (plain `npx -y @avclabs.ai/sam3-mcp` works too); the snippets
+use the explicit `-p <package> <bin>` form to pin the exact binary.
 
 ### Claude Code (CLI)
 

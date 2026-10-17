@@ -18,7 +18,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",

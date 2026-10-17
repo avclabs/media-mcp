@@ -2,7 +2,7 @@
 
 [English](https://github.com/avclabs/media-mcp/blob/main/packages/media-mcp/README.md) | 中文
 
-> **维护说明**：本包将全部 9 个工具打包在一个 server 中。新的接入建议改用按功能拆分的 [@avclabs.ai/video-mcp](../../video-mcp)、[@avclabs.ai/image-mcp](../../image-mcp)、[@avclabs.ai/sam3-mcp](../../sam3-mcp)，让每个 MCP 客户端会话只加载自己需要的工具定义。本全量包继续可用且配置完全兼容；迁移矩阵见[仓库 README](https://github.com/avclabs/media-mcp#readme)。
+> **维护说明**：本包将全部 9 个工具打包在一个 server 中。新的接入建议改用按功能拆分的 [@avclabs.ai/video-mcp](../video-mcp)、[@avclabs.ai/image-mcp](../image-mcp)、[@avclabs.ai/sam3-mcp](../sam3-mcp)，让每个 MCP 客户端会话只加载自己需要的工具定义。本全量包继续可用且配置完全兼容；迁移矩阵见[仓库 README](https://github.com/avclabs/media-mcp#readme)。
 
 [![npm version](https://img.shields.io/npm/v/@avclabs.ai/media-mcp)](https://www.npmjs.com/package/@avclabs.ai/media-mcp)
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)

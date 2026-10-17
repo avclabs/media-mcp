@@ -152,7 +152,13 @@ await runSession('image-mcp', 'packages/image-mcp/dist/server.js', ['--api-key',
   check('happy path enhance_image_sync completes', okBody.success === true && okBody.image_url === 'https://x/i.png');
 });
 
-await runSession('sam3-mcp', 'packages/sam3-mcp/dist/server.js', ['--api-key', 'test-key', '--sam3-base-url', `${BASE}/sam`], async (session, label) => {
+await runSession('sam3-mcp', 'packages/sam3-mcp/dist/server.js', [
+  '--api-key', 'test-key',
+  '--sam3-base-url', `${BASE}/sam`,
+  // Exercise the SAM3 wait CLI flags end-to-end (bounds-checked at startup).
+  '--sam3-poll-interval', '500',
+  '--sam3-poll-max-attempts', '3',
+], async (session, label) => {
   await expectTools(label, ['sam3_predict', 'get_sam3_task_status'])(session);
 
   // P0-1: sam3_predict must work with --api-key only (no env var)
@@ -167,6 +173,8 @@ await runSession('media-mcp (legacy)', 'packages/media-mcp/dist/server.js', [
   '--api-key', 'test-key',
   '--base-url', BASE,
   '--sam3-base-url', `${BASE}/sam`,
+  // Exercise the explicit --config path (file layer sits below CLI overrides).
+  '--config', 'packages/media-mcp/config.json',
 ], async (session, label) => {
   await expectTools(label, [
     'create_task', 'get_task_status', 'enhance_video_sync',

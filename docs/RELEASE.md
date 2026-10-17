@@ -25,7 +25,7 @@ API 候选 schema head 为 `20260906_0007`。执行顺序见
 - Node.js 18 或更高版本。
 - npm 组织 `@avclabs.ai` 的发布权限和有效 2FA/token。
 - 同级 `media-mcp-api-http-server` 的视频/图片/账户接口以及外部 SAM3 服务已部署，并保持对已发布版本的向后兼容。
-- 各包 `config.json` 保持现状（image 包的 `imageBaseUrl` 为 `null`，走回落契约），生产默认端点由代码默认值提供。
+- 各包 `config.json` 保持现状（image 包的 `imageBaseUrl` 为 `null`，走回落契约），生产默认端点由各包内置默认值提供（bundled `config.json` 与代码默认值一致）。
 - `main` 工作区干净，待发布版本号尚未存在于 npm registry。
 
 ## 版本位置
@@ -33,7 +33,7 @@ API 候选 schema head 为 `20260906_0007`。执行顺序见
 每个包的版本号存在于以下位置，必须同步（`npm run check:release` 会逐一校验）：
 
 - `packages/<pkg>/package.json`
-- `package-lock.json` 中 `packages/packages/<pkg>` 条目
+- `package-lock.json` 中 `packages/<pkg>` 条目（如 `packages/core`、`packages/video-mcp`）
 - `packages/<pkg>/src/server.ts` 的 `SERVER_VERSION` 字面量（core 除外，无 server）
 - 仅旧版包：根 `server.json` 顶层与 `packages[0]`
 - 服务器包对 `@avclabs.ai/media-mcp-core` 的 `^` 依赖范围必须被 workspace 内 core 版本满足
@@ -62,9 +62,14 @@ npm publish --access public -w packages/sam3-mcp
 npm publish --access public -w packages/media-mcp
 ```
 
+> 注意：发布旧版包前必须先把 `packages/media-mcp` bump 到 **0.4.0**——registry 已存在
+> 0.3.0（发布时会 EPUBLISHCONFLICT），且它依赖的三个分体包必须已先行出现在 registry，
+> 否则新用户安装旧版包会解析失败。每个包发布时 `prepublishOnly` 会自动重新构建，
+> 但仍应从干净检出执行整个流程。
+
 `release:verify` 的 `npm pack --dry-run --workspaces` 会展示每个包将发布的文件。
-确认产物只包含各包的 `dist/`、`config.json`、`LICENSE` 和 README，不含 `.env`、日志、
-测试数据或凭据。
+确认产物只包含各服务器包的 `dist/`、`config.json`、`LICENSE` 和 README（core 包不含
+`config.json`），不含 `.env`、日志、测试数据或凭据。
 
 发布成功后，每个发布的包打独立 tag 并推送：
 

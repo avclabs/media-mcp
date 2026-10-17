@@ -50,8 +50,10 @@ Every server is a stdio MCP server over `npx`. For example, image tools only:
 }
 ```
 
-Note the `-p <package> <bin>` form: these packages install a named binary, so
-plain `npx -y <package>` would run the default bin of the legacy package.
+Each package ships exactly one bin named like the package, so plain
+`npx -y <package>` also works; the snippets use the explicit
+`-p <package> <bin>` form because it pins the exact binary regardless of how
+a package's bin set evolves.
 Each package README ([video](packages/video-mcp/README.md),
 [image](packages/image-mcp/README.md),
 [SAM3](packages/sam3-mcp/README.md)) has full install instructions for Claude
@@ -82,6 +84,9 @@ npm test             # rebuild + run all package tests
 npm run release:verify   # metadata gate + audit + tests + pack dry-run
 node scripts/e2e-check.mjs  # stdio E2E for all four server entries
 ```
+
+To iterate on one package: build core once (`npm run build -w packages/core`),
+then run `npm run dev -w packages/<pkg>` (tsc --watch) in another terminal.
 
 Maintainers: see the [release guide](docs/RELEASE.md) for publish order
 (core first), versioning, tags, and smoke tests. Publishing is manual from a
