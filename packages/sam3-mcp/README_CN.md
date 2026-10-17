@@ -71,8 +71,8 @@ npm install -g @avclabs.ai/sam3-mcp
 |---|---|---|---|
 | `API_KEY` | **是** | - | API 认证密钥 |
 | `SAM3_API_BASE_URL` | 否 | `https://mcp.avc.ai/sam` | SAM3 服务接口地址 |
-| `SAM3_POLL_INTERVAL_MS` | 否 | `2000` | 轮询间隔（毫秒，`SAM3_POLL_INTERVAL` 为已弃用别名） |
-| `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | 最大状态查询次数；时间预算为 间隔 × 次数，任一限制先耗尽即截断等待 |
+| `SAM3_POLL_INTERVAL_MS` | 否 | `2000` | 轮询间隔（毫秒，500..60000，超出范围或非整数会在启动时报错退出；`SAM3_POLL_INTERVAL` 为已弃用别名） |
+| `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | 最大状态查询次数（1..1000）；时间预算为 间隔 × 次数，任一限制先耗尽即截断等待 |
 
 对应的命令行参数：`--api-key`、`--sam3-base-url`、`--sam3-poll-interval`、
 `--sam3-poll-max-attempts`（另支持 `--config <路径>`）。显式配置的非法值会在启动时

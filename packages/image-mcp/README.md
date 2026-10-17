@@ -76,12 +76,12 @@ After restarting your client you should see exactly 4 tools:
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `API_KEY` | **Yes** | - | API authentication key |
-| `IMAGE_API_BASE_URL` | No | Falls back to `HTTP_API_BASE_URL` | Optional image endpoint override; omit for the shared production server |
-| `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Fallback endpoint when `IMAGE_API_BASE_URL` is unset |
+| `IMAGE_API_BASE_URL` | No | Falls back to `HTTP_API_BASE_URL` | Optional image host override; omit for the shared production host |
+| `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Fallback host address when `IMAGE_API_BASE_URL` is unset |
 
 `IMAGE_API_BASE_URL` is an optional override for deployments that split the
-public image endpoint. When omitted (the recommended setup), image calls share
-the production enhancement endpoint — the same fallback behavior as the
+public image host. When omitted (the recommended setup), image calls share
+the production enhancement host — the same fallback behavior as the
 all-in-one package.
 
 CLI equivalents: `--api-key`, `--image-base-url`, `--base-url` (fallback), and
@@ -107,8 +107,10 @@ CLI equivalents: `--api-key`, `--image-base-url`, `--base-url` (fallback), and
 | `colorize_image_sync` | Black-and-white photo colorization | Restoring old B&W photos with realistic colors |
 | `denoise_image_sync` | Image noise removal | Noisy/grainy photos taken in low light |
 
-All three tools are **synchronous** — the tool blocks until the image is
-processed or the wait budget is reached, and share the same behavior pattern.
+All three processing tools are **synchronous** — they block until the image is
+processed or the wait budget is reached, and share the same behavior pattern. The
+fourth tool, `get_image_task_status`, returns immediately and exists for polling
+after a truncation.
 
 ### enhance_image_sync
 

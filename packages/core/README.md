@@ -15,7 +15,7 @@ Internal shared library for the AVCLabs media MCP servers
   decoding, SSRF-guarded downloads, and the TOS signature + upload contract
 - `config.ts` — host-config primitives: layer precedence
   (CLI > env > bundled file > default), bounded-int parsing, and the shared
-  endpoint/API-key resolvers
+  host-address/API-key resolvers
 - `cli.ts` / `bundled-config.ts` — per-package flag parsing and bundled
   `config.json` loading (never reads the caller's working directory)
 - `bootstrap.ts` — stdio server bootstrap (`runStdioServer`)

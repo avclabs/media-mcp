@@ -8,7 +8,7 @@ English | [中文](https://github.com/avclabs/media-mcp/blob/main/packages/media
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A video enhancement, image enhancement/colorization/denoising, and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with backend HTTP Servers.
+A video enhancement, image enhancement/colorization/denoising, and image segmentation service based on the MCP protocol, acting as an MCP Client-Server to interact with the hosted AVCLabs media services.
 
 > **Release status:** the published npm package (`latest` = `0.3.0`) includes 9 tools — 3 video, 4 image, and 2 SAM3 — all production-ready.
 
@@ -127,15 +127,15 @@ After restarting your client, check if the tools are available:
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `API_KEY` | **Yes** | - | API authentication key (shared by video, image, and SAM3 services) |
-| `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Shared video and image HTTP service endpoint |
-| `IMAGE_API_BASE_URL` | No | Same as `HTTP_API_BASE_URL` | Optional image endpoint override; omit for the shared production server |
-| `SAM3_API_BASE_URL` | No | `https://mcp.avc.ai/sam` | SAM3 service endpoint |
+| `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Shared video and image enhancement host address |
+| `IMAGE_API_BASE_URL` | No | Same as `HTTP_API_BASE_URL` | Optional image host override; omit for the shared production host |
+| `SAM3_API_BASE_URL` | No | `https://mcp.avc.ai/sam` | SAM3 host address |
 | `SAM3_POLL_INTERVAL_MS` | No | `2000` | SAM3 polling interval in milliseconds (`SAM3_POLL_INTERVAL` is a deprecated alias) |
 | `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | SAM3 maximum status queries; the time budget is interval × attempts, and whichever limit is hit first truncates the wait |
 
-`IMAGE_API_BASE_URL` is an optional override for pointing image calls at a custom image endpoint. When omitted, image and video calls share the `HTTP_API_BASE_URL` service — the recommended setup for the production server.
+`IMAGE_API_BASE_URL` is an optional override for pointing image calls at a custom image host. When omitted, image and video calls share the `HTTP_API_BASE_URL` service — the recommended setup for the production server.
 
-### Custom Endpoint
+### Custom Host
 
 ```json
 {
@@ -152,7 +152,7 @@ Or via CLI args:
 npx -y @avclabs.ai/media-mcp@latest --base-url https://your-media-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
 
-The optional `--image-base-url` flag is available for deployments that intentionally split the public image endpoint; the current npm `latest` release does not use it (image calls share the main endpoint).
+The optional `--image-base-url` flag is available for deployments that intentionally split the public image host; the current npm `latest` release does not use it (image calls share the main host).
 
 ## Recommended Workflow
 
@@ -627,7 +627,7 @@ npm ci
 npm run release:verify
 ```
 
-Maintainers: see the [release guide](https://github.com/avclabs/media-mcp/blob/main/docs/RELEASE.md) for the current release status, version synchronization, publish order, smoke tests, and the relationship with the portal/backend deployment.
+Maintainers: see the [release guide](https://github.com/avclabs/media-mcp/blob/main/docs/RELEASE.md) for the current release status, version synchronization, publish order, smoke tests, and the relationship with the portal and host-service deployment.
 
 ## License
 

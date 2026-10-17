@@ -8,7 +8,7 @@
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-基于 MCP 协议的视频增强、图片增强/上色/降噪与图像分割服务，作为 MCP Client-Server 与后端 HTTP Server 交互。
+基于 MCP 协议的视频增强、图片增强/上色/降噪与图像分割服务，作为 MCP Client-Server 与 AVCLabs 云端媒体服务交互。
 
 > **发布状态**：当前 npm `latest`（`0.3.0`）包含 9 个工具——3 个视频、4 个图片、2 个 SAM3——全部正式可用。
 
@@ -127,13 +127,13 @@ AI 会自动完成：
 | 变量名 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
 | `API_KEY` | **是** | - | API 认证密钥（视频、图片和 SAM3 服务共用） |
-| `HTTP_API_BASE_URL` | 否 | `https://mcp.avc.ai/enhance` | 视频与图片共用的 HTTP 服务接口地址 |
-| `IMAGE_API_BASE_URL` | 否 | 与 `HTTP_API_BASE_URL` 相同 | 可选图片接口覆盖；共享生产服务无需配置 |
-| `SAM3_API_BASE_URL` | 否 | `https://mcp.avc.ai/sam` | SAM3 服务接口地址 |
+| `HTTP_API_BASE_URL` | 否 | `https://mcp.avc.ai/enhance` | 视频与图片共用的增强服务地址 |
+| `IMAGE_API_BASE_URL` | 否 | 与 `HTTP_API_BASE_URL` 相同 | 可选图片服务地址覆盖；共享生产服务无需配置 |
+| `SAM3_API_BASE_URL` | 否 | `https://mcp.avc.ai/sam` | SAM3 服务地址 |
 | `SAM3_POLL_INTERVAL_MS` | 否 | `2000` | SAM3 轮询间隔（毫秒，`SAM3_POLL_INTERVAL` 为已弃用别名） |
 | `SAM3_POLL_MAX_ATTEMPTS` | 否 | `25` | SAM3 最大状态查询次数；时间预算为 间隔 × 次数，任一限制先耗尽即截断等待 |
 
-`IMAGE_API_BASE_URL` 是可选的图片端点覆盖参数，用于把图片请求指向自定义图片服务。省略时，图片与视频请求共用 `HTTP_API_BASE_URL` 服务——这也是生产服务器的推荐配置。
+`IMAGE_API_BASE_URL` 是可选的图片服务地址覆盖参数，用于把图片请求指向自定义图片服务。省略时，图片与视频请求共用 `HTTP_API_BASE_URL` 服务——这也是生产服务器的推荐配置。
 
 ### 自定义服务地址
 
@@ -152,7 +152,7 @@ AI 会自动完成：
 npx -y @avclabs.ai/media-mcp@latest --base-url https://your-media-endpoint.com --api-key your-api-key --sam3-base-url https://your-sam3-endpoint.com
 ```
 
-可选的 `--image-base-url` 参数仅用于主动拆分公网图片端点的部署；当前 npm `latest` 版本不使用它（图片请求共用主端点）。
+可选的 `--image-base-url` 参数仅用于主动拆分公网图片服务地址的部署；当前 npm `latest` 版本不使用它（图片请求共用主服务地址）。
 
 ## 推荐的工作流程
 

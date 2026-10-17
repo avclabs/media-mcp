@@ -73,10 +73,10 @@ After restarting your client you should see exactly 3 tools: `create_task`,
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `API_KEY` | **Yes** | - | API authentication key |
-| `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Video HTTP service endpoint |
+| `HTTP_API_BASE_URL` | No | `https://mcp.avc.ai/enhance` | Enhancement host address for video |
 
 CLI equivalents: `--api-key`, `--base-url` (and `--config <path>` for an
-explicit config file). Custom endpoint example:
+explicit config file). Custom host example:
 
 ```json
 {

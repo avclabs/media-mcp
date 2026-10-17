@@ -1,5 +1,6 @@
-// Throwaway end-to-end check: mock backend + real MCP stdio clients against
-// every server entry (per-function packages and the legacy all-in-one).
+// End-to-end check: mock backend + real MCP stdio clients against every
+// server entry (per-function packages and the legacy all-in-one), plus
+// negative startup cases that must fail closed.
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 
@@ -30,7 +31,7 @@ const mock = http.createServer((req, res) => {
       return send({
         code: 0,
         data: {
-          url: 'http://127.0.0.1:8799/tos/up/file-1',
+          url: `http://127.0.0.1:${mock.address().port}/tos/up/file-1`,
           policy: Buffer.from(JSON.stringify({ conditions: [{ key: 'up/file-1' }] }), 'utf-8').toString('base64'),
           algorithm: 'a', credential: 'c', date: 'd', signature: 's',
         },
@@ -41,22 +42,22 @@ const mock = http.createServer((req, res) => {
       return send({
         code: 0,
         data: {
-          url: 'http://127.0.0.1:8799/tos/up/file-1',
+          url: `http://127.0.0.1:${mock.address().port}/tos/up/file-1`,
           policy: Buffer.from(JSON.stringify({ conditions: [{ key: 'up/file-1' }] }), 'utf-8').toString('base64'),
           algorithm: 'a', credential: 'c', date: 'd', signature: 's',
         },
       });
     }
     if (url.pathname === '/sam/predict') return send({ task_id: 'sam-1' });
-    if (url.pathname === '/sam/predict/result/sam-1') return send({ status: 'completed', result: 'http://127.0.0.1:8799/result.json' });
+    if (url.pathname === '/sam/predict/result/sam-1') return send({ status: 'completed', result: `http://127.0.0.1:${mock.address().port}/result.json` });
     if (url.pathname === '/result.json') return send({ masks: [], boxes: [], scores: [] });
     res.writeHead(404);
     res.end('not found');
   });
 });
 
-await new Promise((resolve) => mock.listen(8799, '127.0.0.1', resolve));
-const BASE = 'http://127.0.0.1:8799';
+await new Promise((resolve) => mock.listen(0, '127.0.0.1', resolve));
+const BASE = `http://127.0.0.1:${mock.address().port}`;
 
 const results = [];
 function check(name, condition, detail) {
@@ -64,8 +65,28 @@ function check(name, condition, detail) {
   console.log(`${condition ? 'PASS' : 'FAIL'}  ${name}${detail ? `  -- ${detail}` : ''}`);
 }
 
+// Every session passes its full configuration via CLI flags, so inherited
+// environment values must never leak in — a developer shell with API_KEY
+// exported would otherwise mask a broken flag mapping (and make the
+// CLI-only-key checks pass accidentally).
+const SCRUBBED_ENV_KEYS = [
+  'API_KEY',
+  'HTTP_API_BASE_URL',
+  'IMAGE_API_BASE_URL',
+  'SAM3_API_BASE_URL',
+  'SAM3_POLL_INTERVAL_MS',
+  'SAM3_POLL_INTERVAL',
+  'SAM3_POLL_MAX_ATTEMPTS',
+];
+
+function scrubbedEnv() {
+  const env = { ...process.env };
+  for (const key of SCRUBBED_ENV_KEYS) delete env[key];
+  return env;
+}
+
 function startServer(label, entry, args) {
-  const child = spawn('node', [entry, ...args], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const child = spawn('node', [entry, ...args], { stdio: ['pipe', 'pipe', 'inherit'], env: scrubbedEnv() });
   let buffer = '';
   const pending = new Map();
   let nextId = 0;
@@ -186,6 +207,45 @@ await runSession('media-mcp (legacy)', 'packages/media-mcp/dist/server.js', [
   const okBody = JSON.parse(ok.result.content[0].text);
   check('legacy happy path enhance_video_sync completes', okBody.success === true && okBody.video_url === 'https://x/v.mp4');
 });
+
+// A server handed an invalid explicit value (or no API key at all) must fail
+// closed: non-zero exit and the real error on stderr, never a silent fallback
+// to defaults. This is the only coverage of the CLI flag-table wiring.
+function expectStartupFailure(label, entry, args, expectedStderr) {
+  return new Promise((resolve) => {
+    const child = spawn('node', [entry, ...args], { stdio: ['ignore', 'ignore', 'pipe'], env: scrubbedEnv() });
+    let err = '';
+    child.stderr.on('data', (chunk) => (err += chunk));
+    child.on('exit', (code) => {
+      const ok = code !== 0 && err.includes(expectedStderr);
+      check(
+        `${label}: exits non-zero with "${expectedStderr}" on stderr`,
+        ok,
+        `code=${code} :: ${err.trim().split('\n').pop()?.slice(0, 140) ?? ''}`
+      );
+      resolve();
+    });
+  });
+}
+
+await expectStartupFailure(
+  'sam3-mcp below-range interval',
+  'packages/sam3-mcp/dist/server.js',
+  ['--api-key', 'test-key', '--sam3-poll-interval', '100'],
+  'Invalid SAM3_POLL_INTERVAL_MS'
+);
+await expectStartupFailure(
+  'sam3-mcp non-integer attempts',
+  'packages/sam3-mcp/dist/server.js',
+  ['--api-key', 'test-key', '--sam3-poll-max-attempts', 'abc'],
+  'Invalid SAM3_POLL_MAX_ATTEMPTS'
+);
+await expectStartupFailure(
+  'video-mcp missing API key',
+  'packages/video-mcp/dist/server.js',
+  [],
+  'API key is required'
+);
 
 mock.close();
 const failedCount = results.filter((r) => !r.ok).length;

@@ -39,7 +39,25 @@ for (const { dir, name, hasServer } of packages) {
     fail(`packages/${dir}: package-lock version is ${lockEntry?.version ?? 'missing'}, expected ${manifest.version} (run npm install)`)
   }
 
-  if (!manifest.files?.includes('dist')) fail(`packages/${dir}/package.json files must include "dist"`)
+  // The published manifest is gated exactly: the files set matches what
+  // docs/RELEASE.md documents (server packages ship a bundled config.json and
+  // both READMEs; core does not), and the publish-time build safety net that
+  // once went missing in the split cannot silently disappear again.
+  const expectedFiles =
+    dir === 'core' ? ['dist', 'README.md', 'LICENSE'] : ['dist', 'config.json', 'LICENSE', 'README.md', 'README_CN.md'];
+  const filesEntries = manifest.files ?? [];
+  for (const entry of expectedFiles) {
+    if (!filesEntries.includes(entry)) fail(`packages/${dir}: files must include "${entry}"`)
+  }
+  for (const entry of filesEntries) {
+    if (!expectedFiles.includes(entry)) fail(`packages/${dir}: unexpected files entry "${entry}" (update docs/RELEASE.md if intentional)`)
+  }
+  if (manifest.scripts?.prepublishOnly !== 'npm run build') {
+    fail(`packages/${dir}: scripts.prepublishOnly must be "npm run build"`)
+  }
+  if (manifest.exports?.['.'] === undefined) {
+    fail(`packages/${dir}: must expose a "." export (library surface separate from the bin entry)`)
+  }
 
   for (const [binName, binTarget] of Object.entries(manifest.bin ?? {})) {
     const entryMatch = /^dist\/(.+)\.js$/.exec(binTarget)

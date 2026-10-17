@@ -73,11 +73,11 @@ npm install -g @avclabs.ai/image-mcp
 | 变量名 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
 | `API_KEY` | **是** | - | API 认证密钥 |
-| `IMAGE_API_BASE_URL` | 否 | 回落到 `HTTP_API_BASE_URL` | 可选图片端点覆盖；共享生产服务无需配置 |
+| `IMAGE_API_BASE_URL` | 否 | 回落到 `HTTP_API_BASE_URL` | 可选图片服务地址覆盖；共享生产服务无需配置 |
 | `HTTP_API_BASE_URL` | 否 | `https://mcp.avc.ai/enhance` | `IMAGE_API_BASE_URL` 未设置时的回落地址 |
 
-`IMAGE_API_BASE_URL` 仅用于主动拆分公网图片端点的部署；省略时（推荐配置）图片
-请求共用生产增强端点——与全量包的回落行为完全一致。
+`IMAGE_API_BASE_URL` 仅用于主动拆分公网图片服务地址的部署；省略时（推荐配置）图片
+请求共用生产增强服务——与全量包的回落行为完全一致。
 
 对应的命令行参数：`--api-key`、`--image-base-url`、`--base-url`（回落用）、
 `--config <路径>`。
@@ -102,7 +102,7 @@ npm install -g @avclabs.ai/image-mcp
 | `colorize_image_sync` | 黑白照片上色 | 为老旧黑白照片恢复真实色彩 |
 | `denoise_image_sync` | 图片降噪去噪 | 弱光环境下拍摄的噪点/颗粒感照片 |
 
-三个工具均为**同步**调用——阻塞直到处理完成或等待预算耗尽，参数与行为模式相同。
+三个处理工具（不含状态查询）均为**同步**调用——阻塞直到处理完成或等待预算耗尽，参数与行为模式相同；`get_image_task_status` 立即返回，用于截断后的轮询。
 
 ### enhance_image_sync
 

@@ -72,9 +72,9 @@ and `get_sam3_task_status`.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `API_KEY` | **Yes** | - | API authentication key |
-| `SAM3_API_BASE_URL` | No | `https://mcp.avc.ai/sam` | SAM3 service endpoint |
-| `SAM3_POLL_INTERVAL_MS` | No | `2000` | Polling interval in milliseconds (`SAM3_POLL_INTERVAL` is a deprecated alias) |
-| `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | Maximum status queries; the time budget is interval × attempts, and whichever limit is hit first truncates the wait |
+| `SAM3_API_BASE_URL` | No | `https://mcp.avc.ai/sam` | SAM3 host address |
+| `SAM3_POLL_INTERVAL_MS` | No | `2000` | Polling interval in milliseconds, 500..60000; out-of-range or non-integer values abort startup (`SAM3_POLL_INTERVAL` is a deprecated alias) |
+| `SAM3_POLL_MAX_ATTEMPTS` | No | `25` | Maximum status queries, 1..1000; the time budget is interval × attempts, and whichever limit is hit first truncates the wait |
 
 CLI equivalents: `--api-key`, `--sam3-base-url`, `--sam3-poll-interval`,
 `--sam3-poll-max-attempts` (and `--config <path>`). Invalid explicit poll

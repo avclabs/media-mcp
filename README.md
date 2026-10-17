@@ -59,7 +59,7 @@ Each package README ([video](packages/video-mcp/README.md),
 [SAM3](packages/sam3-mcp/README.md)) has full install instructions for Claude
 Code, Cursor, and global installs, plus the configuration variables it reads.
 
-All packages share one `API_KEY` and the same backend defaults
+All packages share one `API_KEY` and the same production host defaults
 (`https://mcp.avc.ai/enhance` and `https://mcp.avc.ai/sam`).
 
 ## Repository layout

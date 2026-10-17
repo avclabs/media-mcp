@@ -25,7 +25,7 @@ API 候选 schema head 为 `20260906_0007`。执行顺序见
 - Node.js 18 或更高版本。
 - npm 组织 `@avclabs.ai` 的发布权限和有效 2FA/token。
 - 同级 `media-mcp-api-http-server` 的视频/图片/账户接口以及外部 SAM3 服务已部署，并保持对已发布版本的向后兼容。
-- 各包 `config.json` 保持现状（image 包的 `imageBaseUrl` 为 `null`，走回落契约），生产默认端点由各包内置默认值提供（bundled `config.json` 与代码默认值一致）。
+- 各包 `config.json` 保持现状（image 包的 `imageBaseUrl` 为 `null`，走回落契约），生产默认服务地址由各包内置默认值提供（bundled `config.json` 与代码默认值一致）。
 - `main` 工作区干净，待发布版本号尚未存在于 npm registry。
 
 ## 版本位置
@@ -47,7 +47,7 @@ API 候选 schema head 为 `20260906_0007`。执行顺序见
 ```bash
 npm ci                # 安装 workspaces 并构建全部包
 npm run release:verify   # 版本门禁 + 生产依赖审计 + 全部测试 + 各包 npm pack --dry-run
-node scripts/e2e-check.mjs  # 四个 server 入口的 stdio E2E（mock 后端）
+node scripts/e2e-check.mjs  # 四个 server 入口的 stdio E2E（mock 服务）
 npm login
 ```
 

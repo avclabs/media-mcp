@@ -4,8 +4,15 @@
   "version": "0.3.0",
   "description": "Legacy all-in-one MCP Server for video enhancement, image enhancement/colorization/denoising, and image segmentation (SAM3). Prefer the per-function packages @avclabs.ai/video-mcp, @avclabs.ai/image-mcp, and @avclabs.ai/sam3-mcp.",
   "mcpName": "io.github.avclabs/media-mcp",
-  "main": "dist/server.js",
-  "types": "dist/server.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "media-mcp": "dist/server.js"
   },

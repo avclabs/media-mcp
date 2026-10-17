@@ -49,7 +49,7 @@
 [图片](packages/image-mcp/README_CN.md)、[SAM3](packages/sam3-mcp/README_CN.md)）
 包含 Claude Code、Cursor 与全局安装的完整步骤，以及各自读取的配置变量。
 
-所有包共用同一个 `API_KEY` 和相同的后端默认地址
+所有包共用同一个 `API_KEY` 和相同的生产服务默认地址
 （`https://mcp.avc.ai/enhance` 与 `https://mcp.avc.ai/sam`）。
 
 ## 仓库结构
