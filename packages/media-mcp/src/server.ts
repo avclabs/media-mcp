@@ -14,7 +14,7 @@ import { setupSam3Tools } from '@avclabs.ai/sam3-mcp';
 import { resolveMediaHostConfig } from './config.js';
 
 // Kept in sync with package.json; scripts/check-release.mjs fails the build on drift.
-const SERVER_VERSION = '0.3.0';
+const SERVER_VERSION = '0.4.0';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
