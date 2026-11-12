@@ -234,11 +234,17 @@ export interface TosUploadTarget {
 }
 
 // Whitelist: only these signature fields are ever forwarded as TOS form fields.
+// The production signature service returns the final TOS form field names
+// directly (x-tos-*); the e2e mock and older backends use the short forms.
 const TOS_FIELD_MAPPING: Record<string, string> = {
   algorithm: 'x-tos-algorithm',
   credential: 'x-tos-credential',
   date: 'x-tos-date',
   signature: 'x-tos-signature',
+  'x-tos-algorithm': 'x-tos-algorithm',
+  'x-tos-credential': 'x-tos-credential',
+  'x-tos-date': 'x-tos-date',
+  'x-tos-signature': 'x-tos-signature',
 };
 
 function decodePolicyJson(policyValue: string): any | undefined {

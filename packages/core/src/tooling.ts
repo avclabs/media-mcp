@@ -58,7 +58,9 @@ export function requestBudgetMs(deadline: number, now: number = Date.now()): num
 
 const TERMINAL_OK_STATUSES = new Set(['completed', 'succeeded', 'success']);
 const TERMINAL_FAIL_STATUSES = new Set(['failed', 'canceled', 'cancelled', 'expired', 'rejected']);
-const TRANSIENT_STATUSES = new Set(['processing', 'pending', 'running', 'queued']);
+// "wait"/"waiting": the backend reports this right after task creation, before
+// any worker picks it up (observed live: image enhance tasks start as "wait").
+const TRANSIENT_STATUSES = new Set(['processing', 'pending', 'running', 'queued', 'wait', 'waiting']);
 
 export type StatusKind = 'ok' | 'failed' | 'processing' | 'unknown';
 

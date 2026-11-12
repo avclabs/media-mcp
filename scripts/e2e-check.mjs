@@ -5,6 +5,9 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 
 let taskMode = 'completed';
+// Track per-task poll count so the mock can mirror the live backend's
+// status lifecycle: "wait" right after creation, then processing/terminal.
+const pollCounts = new Map();
 
 const mock = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -16,15 +19,19 @@ const mock = http.createServer((req, res) => {
       res.end(JSON.stringify(obj));
     };
     if (url.pathname === '/api/v3/contents/generations/tasks' && req.method === 'POST') {
-      return send({ code: 0, data: { task_id: 'task-1', status: 'processing' } });
+      return send({ code: 0, data: { task_id: 'task-1', status: 'wait' } });
     }
     if (url.pathname === '/api/v3/contents/generations/image/enhance' && req.method === 'POST') {
-      return send({ code: 0, data: { task_id: 'task-1', status: 'processing' } });
+      return send({ code: 0, data: { task_id: 'task-1', status: 'wait' } });
     }
     if (url.pathname === '/api/v3/contents/generations/tasks/task-1') {
+      const polls = (pollCounts.get('task-1') ?? 0) + 1;
+      pollCounts.set('task-1', polls);
       if (taskMode === 'failed') {
         return send({ code: 0, data: { task_id: 'task-1', status: 'failed', progress: 40, error_message: 'GPU worker exploded' } });
       }
+      // Mirror the live backend: first poll reports the queued "wait" state.
+      if (polls === 1) return send({ code: 0, data: { task_id: 'task-1', status: 'wait', progress: 0 } });
       return send({ code: 0, data: { task_id: 'task-1', status: 'completed', progress: 100, video_url: 'https://x/v.mp4', image_url: 'https://x/i.png' } });
     }
     if (url.pathname === '/api/v3/contents/generations/tos-signature') {
@@ -32,8 +39,12 @@ const mock = http.createServer((req, res) => {
         code: 0,
         data: {
           url: `http://127.0.0.1:${mock.address().port}/tos/up/file-1`,
-          policy: Buffer.from(JSON.stringify({ conditions: [{ key: 'up/file-1' }] }), 'utf-8').toString('base64'),
-          algorithm: 'a', credential: 'c', date: 'd', signature: 's',
+          // Live production shape: plain-JSON policy plus x-tos-* field names.
+          origin_policy: JSON.stringify({ conditions: [{ key: 'up/file-1' }] }),
+          'x-tos-algorithm': 'TOS4-HMAC-SHA256',
+          'x-tos-credential': 'c',
+          'x-tos-date': 'd',
+          'x-tos-signature': 's',
         },
       });
     }
@@ -43,8 +54,11 @@ const mock = http.createServer((req, res) => {
         code: 0,
         data: {
           url: `http://127.0.0.1:${mock.address().port}/tos/up/file-1`,
-          policy: Buffer.from(JSON.stringify({ conditions: [{ key: 'up/file-1' }] }), 'utf-8').toString('base64'),
-          algorithm: 'a', credential: 'c', date: 'd', signature: 's',
+          origin_policy: JSON.stringify({ conditions: [{ key: 'up/file-1' }] }),
+          'x-tos-algorithm': 'TOS4-HMAC-SHA256',
+          'x-tos-credential': 'c',
+          'x-tos-date': 'd',
+          'x-tos-signature': 's',
         },
       });
     }
