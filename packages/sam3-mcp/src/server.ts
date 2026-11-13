@@ -9,7 +9,7 @@ import { resolveSam3Config } from './config.js';
 import { setupSam3Tools } from './sam3.js';
 
 // Kept in sync with package.json; scripts/check-release.mjs fails the build on drift.
-const SERVER_VERSION = '0.1.0';
+const SERVER_VERSION = '0.1.1';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);

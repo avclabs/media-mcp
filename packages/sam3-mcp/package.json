@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@avclabs.ai/sam3-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for SAM3 image segmentation: sam3_predict, get_sam3_task_status",
   "mcpName": "io.github.avclabs/sam3-mcp",
   "main": "dist/index.js",
@@ -59,8 +59,8 @@
       "API_KEY": "your-api-key",
       "SAM3_API_BASE_URL": "https://mcp.avc.ai/sam"
     },
-    "description": "SAM3 图像分割 MCP 服务（sam3_predict / get_sam3_task_status）",
-    "setup": "需要替换 env.API_KEY 为你的 API Key"
+    "description": "SAM3 \u56fe\u50cf\u5206\u5272 MCP \u670d\u52a1\uff08sam3_predict / get_sam3_task_status\uff09",
+    "setup": "\u9700\u8981\u66ff\u6362 env.API_KEY \u4e3a\u4f60\u7684 API Key"
   },
   "engines": {
     "node": ">=18.0.0"

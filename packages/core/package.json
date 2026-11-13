@@ -1,6 +1,6 @@
 {
   "name": "@avclabs.ai/media-mcp-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared toolkit for the AVCLabs media MCP servers: tool registration, task polling, TOS upload, and host config resolution",
   "type": "module",
   "main": "dist/index.js",

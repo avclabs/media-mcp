@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@avclabs.ai/image-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for AVCLabs image enhancement, colorization, and denoising: enhance_image_sync, colorize_image_sync, denoise_image_sync, get_image_task_status",
   "mcpName": "io.github.avclabs/image-mcp",
   "main": "dist/index.js",
@@ -61,8 +61,8 @@
       "API_KEY": "your-api-key",
       "IMAGE_API_BASE_URL": "https://mcp.avc.ai/enhance"
     },
-    "description": "AVCLabs 图片增强/上色/降噪 MCP 服务（enhance_image_sync / colorize_image_sync / denoise_image_sync / get_image_task_status）",
-    "setup": "需要替换 env.API_KEY 为你的 API Key。IMAGE_API_BASE_URL 不设置时自动回落到增强服务地址"
+    "description": "AVCLabs \u56fe\u7247\u589e\u5f3a/\u4e0a\u8272/\u964d\u566a MCP \u670d\u52a1\uff08enhance_image_sync / colorize_image_sync / denoise_image_sync / get_image_task_status\uff09",
+    "setup": "\u9700\u8981\u66ff\u6362 env.API_KEY \u4e3a\u4f60\u7684 API Key\u3002IMAGE_API_BASE_URL \u4e0d\u8bbe\u7f6e\u65f6\u81ea\u52a8\u56de\u843d\u5230\u589e\u5f3a\u670d\u52a1\u5730\u5740"
   },
   "engines": {
     "node": ">=18.0.0"
