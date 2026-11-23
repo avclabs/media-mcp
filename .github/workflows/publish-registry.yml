@@ -1,0 +1,77 @@
+name: Publish MCP registry entry
+
+# One server.json per repository, and it always describes the legacy
+# @avclabs.ai/media-mcp package, so the registry entry follows that package's
+# release tag rather than every push.
+on:
+  push:
+    tags:
+      - 'media-mcp-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mcp-publisher
+        run: |
+          arch="$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+          os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+          curl -fsSL \
+            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_${os}_${arch}.tar.gz" \
+            | tar xz mcp-publisher
+          ./mcp-publisher --help | head -5
+
+      # Fail before authenticating: the registry rejects shape problems with a
+      # 422 and a published version can never be withdrawn.
+      - name: Validate server.json
+        run: ./mcp-publisher validate
+
+      - name: Authenticate with GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
+
+      - name: Verify the listing reports this version
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import time
+          import urllib.request
+
+          expected = json.loads(pathlib.Path("server.json").read_text())["version"]
+          url = (
+              "https://registry.modelcontextprotocol.io/v0.1/servers"
+              "?search=io.github.avclabs/media-mcp"
+          )
+
+          # Each entry is {"server": {...}, "_meta": {...}}; the version lives
+          # under "server", never at the top level.
+          for attempt in range(6):
+              with urllib.request.urlopen(url, timeout=20) as response:
+                  payload = json.load(response)
+              entries = payload.get("servers", [])
+              versions = [entry.get("server", {}).get("version") for entry in entries]
+              latest = [
+                  entry.get("server", {}).get("version")
+                  for entry in entries
+                  if entry.get("_meta", {})
+                  .get("io.modelcontextprotocol.registry/official", {})
+                  .get("isLatest")
+              ]
+              if expected in versions and expected in latest:
+                  print(f"registry lists media-mcp version {expected} as latest")
+                  break
+              print(f"attempt {attempt + 1}: versions={versions} latest={latest}")
+              time.sleep(5)
+          else:
+              raise SystemExit(f"registry does not list {expected} as latest")
+          PY

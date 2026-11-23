@@ -93,6 +93,12 @@ npx -y @avclabs.ai/media-mcp@<version> --api-key <temporary-key>
 `.mcpb`，需要时用同一手工流程）；GitHub release、私有 tarball 等渠道在发布公告时一
 并通知。MCP registry 限制（每仓库一个 `server.json`，仍指向旧版包）见 ADR 0001。
 
+MCP registry 上架由 `.github/workflows/publish-registry.yml` 自动执行：推送
+`media-mcp-v*` tag 时用 GitHub OIDC 认证（组织命名空间），校验后发布根 `server.json`，
+并回读 API 确认该版本成为 latest。两个硬约束：`description` 不得超过 100 字符
+（超出返回 422），已发布版本不可修改或撤回。本地可用 `mcp-publisher validate`
+在推送前自查。
+
 ## 与门户/后端的发布顺序（历史记录，2026-09-06；0.3.0 已按此顺序发布完成）
 
 以下为 `0.3.0` 发布前的后端协同顺序，保留作历史记录；其中的"候选 0.3.0"均指当时状态：
