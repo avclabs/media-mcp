@@ -71,7 +71,15 @@ try {
   console.log(`progress events: ${seen.length}`);
 
   const monotonic = seen.every((value, index) => index === 0 || value > seen[index - 1]);
-  const finished = body.status === 'completed' || body.status === 'timeout';
+  // The synchronous wait can end while the task is still healthy: the tool
+  // returns status=processing plus a "still processing" hint when the caller's
+  // timeout expires. That is a valid outcome for this smoke — the progress
+  // sequence is what we came for — so it must not be reported as a failure.
+  const truncated =
+    body.status === 'processing' &&
+    typeof body.message === 'string' &&
+    body.message.includes('still processing');
+  const finished = body.status === 'completed' || body.status === 'timeout' || truncated;
 
   if (seen.length === 0) {
     console.error('FAIL: no notifications/progress received (client sent no token?)');
@@ -83,6 +91,9 @@ try {
     console.error(`FAIL: tool call ended with ${JSON.stringify(body.status ?? body.error ?? body)}`);
     process.exitCode = 1;
   } else {
+    if (truncated) {
+      console.log(`note: sync window closed first; task ${body.task_id} is still running`);
+    }
     console.log('PASS');
   }
 } finally {
