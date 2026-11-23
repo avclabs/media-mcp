@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.avclabs/media-mcp",
-  "description": "MCP Server for video enhancement, image enhancement/colorization/denoising, and image segmentation (SAM3)",
+  "description": "Video and image enhancement, colorization, denoising, and SAM3 segmentation",
   "repository": {
     "url": "https://github.com/avclabs/media-mcp",
     "source": "github"
