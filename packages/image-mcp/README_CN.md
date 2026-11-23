@@ -118,6 +118,8 @@ npm install -g @avclabs.ai/image-mcp
 | `poll_interval` | number | 否 | `5` | 轮询间隔（秒，0.5-30） |
 | `timeout` | number | 否 | `45` | 同步等待超时时间（秒，1-45），超过后主动返回 |
 
+**进度上报**：客户端在请求里提供 `progressToken` 时，等待过程会通过 `notifications/progress` 推送单调递增的 0-100 进度（`total: 100`）和一句状态说明；不提供 token 的调用不会发送任何通知，返回值与之前完全一致。`colorize_image_sync` 与 `denoise_image_sync` 行为相同。
+
 **正常完成返回：**
 ```json
 {

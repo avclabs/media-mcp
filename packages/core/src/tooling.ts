@@ -1,6 +1,46 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { CallToolResult, ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
+
+// ---------------------------------------------------------------------------
+// Progress reporting
+// ---------------------------------------------------------------------------
+
+/** The per-call context the MCP SDK hands to a tool handler. */
+export type ToolExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+
+/** Progress sink: an integer 0-100 plus a human-readable stage message. */
+export type ProgressReporter = (progress: number, message: string) => void | Promise<void>;
+
+/**
+ * Builds the progress reporter for one tool call, or `undefined` when the
+ * client did not ask for progress (no `progressToken` in the request `_meta`).
+ * Returning `undefined` is what keeps a token-less call byte-for-byte
+ * identical to the pre-progress behaviour.
+ *
+ * Notification failures are the caller's problem to survive, not the tool's:
+ * a progress update is advisory, so this reporter never throws.
+ */
+export function createProgressReporter(extra: ToolExtra | undefined): ProgressReporter | undefined {
+  const token = extra?._meta?.progressToken;
+  if (token === undefined) return undefined;
+  return async (progress, message) => {
+    try {
+      await extra!.sendNotification({
+        method: 'notifications/progress',
+        // `relatedRequestId` is not a params field: the SDK's request-scoped
+        // sendNotification attaches it (protocol.js sets relatedRequestId to
+        // the id of the request being handled). Putting it in params would be
+        // dropped by the notification schema.
+        params: { progressToken: token, progress, total: 100, message },
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      console.warn(`[progress] failed to send ${progress}% for token ${String(token)}: ${detail}`);
+    }
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Tool registration wrapper: business failures surface as MCP isError results
@@ -11,11 +51,11 @@ export function registerTool(
   name: string,
   description: string,
   schema: z.ZodRawShape,
-  handler: (args: any) => Promise<unknown>
+  handler: (args: any, extra: ToolExtra) => Promise<unknown>
 ): void {
-  server.tool(name, description, schema, async (args): Promise<CallToolResult> => {
+  server.tool(name, description, schema, async (args, extra): Promise<CallToolResult> => {
     try {
-      const result = await handler(args);
+      const result = await handler(args, extra);
       const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
       const failed = typeof result === 'object' && result !== null && (result as { success?: unknown }).success === false;
       return { content: [{ type: 'text' as const, text }], ...(failed ? { isError: true } : {}) };
@@ -90,6 +130,14 @@ export interface PollParams {
    * parallel; whichever is exhausted first ends the wait.
    */
   maxAttempts?: number;
+  /**
+   * Progress sink fed from `payload.progress` (0-100). Values are emitted
+   * strictly increasing, so an HTTP response that repeats or regresses the
+   * number is never forwarded; a terminal success ends the sequence at 100.
+   * A throwing callback is logged and otherwise ignored: reporting progress
+   * must never break the poll.
+   */
+  onProgress?: ProgressReporter;
   /** Injectable clock and delay for deterministic tests; defaults to real time. */
   now?: () => number;
   delay?: (ms: number) => Promise<void>;
@@ -126,6 +174,25 @@ export async function pollUntilTerminal(params: PollParams): Promise<Record<stri
   let consecutiveFailures = 0;
   let unknownSightings = 0;
   let attempts = 0;
+  let lastReportedProgress = -1;
+
+  // Strictly-increasing delivery: a repeated or regressed number (backend
+  // jitter, or a status flip at the same percentage) carries no new
+  // information and would only make the client's bar stutter.
+  const reportProgress = async (rawProgress: number, status: unknown): Promise<void> => {
+    if (!params.onProgress || !Number.isFinite(rawProgress)) return;
+    const progress = Math.min(100, Math.max(0, Math.round(rawProgress)));
+    if (progress <= lastReportedProgress) return;
+    lastReportedProgress = progress;
+    const statusText = typeof status === 'string' && status !== '' ? status : 'unknown';
+    try {
+      await params.onProgress(progress, `Task ${statusText} (${progress}%)`);
+    } catch (error) {
+      // Advisory only: a broken notification channel must not end the wait.
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(`[progress] onProgress callback failed at ${progress}%: ${detail}`);
+    }
+  };
 
   while (attempts < maxAttempts && now() < deadline) {
     attempts++;
@@ -167,10 +234,16 @@ export async function pollUntilTerminal(params: PollParams): Promise<Record<stri
 
     const kind = classifyStatus(fetched.status);
     if (kind === 'ok') {
+      // Close the bar even when the backend never reported 100 on its own.
+      await reportProgress(100, fetched.status);
       return { success: true, task_id: params.taskId, status: fetched.status, ...fetched.payload };
     }
     if (kind === 'failed') {
       return { success: false, task_id: params.taskId, status: fetched.status, ...fetched.payload };
+    }
+    // Still in flight: forward the backend's own percentage when it advances.
+    if (typeof fetched.payload?.progress === 'number') {
+      await reportProgress(fetched.payload.progress, fetched.status);
     }
     if (kind === 'unknown') {
       unknownSightings++;

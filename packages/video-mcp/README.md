@@ -163,6 +163,8 @@ Synchronously enhance video (blocks until completion).
 | `poll_interval` | number | No | `5` | Poll interval (seconds, 0.5-30) |
 | `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
 
+**Progress:** when the client sends a `progressToken` with the request, the wait also emits `notifications/progress` with a monotonic 0-100 `progress` (`total: 100`) and a short status message. A call without a token sends no notifications and returns exactly what it did before.
+
 **Truncated return example (not completed within the default 45-second budget):**
 ```json
 {

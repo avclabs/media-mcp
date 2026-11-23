@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   checkLocalFile,
   classifyStatus,
+  createProgressReporter,
   formatRequestError,
   parseTosSignature,
   POLL_REQUEST_TIMEOUT_MS,
@@ -12,6 +13,7 @@ import {
   registerTool,
   unwrapEnvelope,
   uploadToTos,
+  type ProgressReporter,
 } from '@avclabs.ai/media-mcp-core';
 
 const PollIntervalSchema = z.number().min(0.5).max(30).default(5).describe('Polling interval in seconds (0.5-30), default 5');
@@ -68,9 +70,21 @@ Two upload methods are supported:
 1. URL upload: provide an image URL
 2. Local upload: provide a local file path, the MCP Server will auto-upload to TOS object storage
 
-Best for images with estimated processing time < 1 minute. If the task is not completed within the timeout, the tool returns early with a task_id. Use get_image_task_status to continue polling.`,
+Best for images with estimated processing time < 1 minute. If the task is not completed within the timeout, the tool returns early with a task_id. Use get_image_task_status to continue polling.
+
+When the client supplies a progressToken, the wait reports 0-100 progress through MCP progress notifications.`,
     EnhanceImageSyncSchema.shape,
-    async (args) => processImageSync(client, args.image_source, args.type, 'enhance', args.poll_interval, args.timeout, args.scale)
+    async (args, extra) =>
+      processImageSync(
+        client,
+        args.image_source,
+        args.type,
+        'enhance',
+        args.poll_interval,
+        args.timeout,
+        args.scale,
+        createProgressReporter(extra)
+      )
   );
 
   registerTool(
@@ -82,9 +96,21 @@ Two upload methods are supported:
 1. URL upload: provide an image URL
 2. Local upload: provide a local file path, the MCP Server will auto-upload to TOS object storage
 
-Best for images with estimated processing time < 1 minute. If the task is not completed within the timeout, the tool returns early with a task_id. Use get_image_task_status to continue polling.`,
+Best for images with estimated processing time < 1 minute. If the task is not completed within the timeout, the tool returns early with a task_id. Use get_image_task_status to continue polling.
+
+When the client supplies a progressToken, the wait reports 0-100 progress through MCP progress notifications.`,
     ColorizeImageSyncSchema.shape,
-    async (args) => processImageSync(client, args.image_source, args.type, 'colorize', args.poll_interval, args.timeout)
+    async (args, extra) =>
+      processImageSync(
+        client,
+        args.image_source,
+        args.type,
+        'colorize',
+        args.poll_interval,
+        args.timeout,
+        undefined,
+        createProgressReporter(extra)
+      )
   );
 
   registerTool(
@@ -96,9 +122,21 @@ Two upload methods are supported:
 1. URL upload: provide an image URL
 2. Local upload: provide a local file path, the MCP Server will auto-upload to TOS object storage
 
-Best for images with estimated processing time < 1 minute. If the task is not completed within the timeout, the tool returns early with a task_id. Use get_image_task_status to continue polling.`,
+Best for images with estimated processing time < 1 minute. If the task is not completed within the timeout, the tool returns early with a task_id. Use get_image_task_status to continue polling.
+
+When the client supplies a progressToken, the wait reports 0-100 progress through MCP progress notifications.`,
     DenoiseImageSyncSchema.shape,
-    async (args) => processImageSync(client, args.image_source, args.type, 'denoise', args.poll_interval, args.timeout)
+    async (args, extra) =>
+      processImageSync(
+        client,
+        args.image_source,
+        args.type,
+        'denoise',
+        args.poll_interval,
+        args.timeout,
+        undefined,
+        createProgressReporter(extra)
+      )
   );
 
   // ========== Status query tool ==========
@@ -234,7 +272,8 @@ async function processImageSync(
   taskType: ImageTaskType,
   pollInterval: number,
   timeout: number,
-  scale?: number
+  scale?: number,
+  onProgress?: ProgressReporter
 ): Promise<any> {
   const createResult = await createImageTask(client, imageSource, sourceType, taskType, scale);
   if (!createResult.success) {
@@ -246,6 +285,7 @@ async function processImageSync(
     timeoutSeconds: timeout,
     pollIntervalSeconds: pollInterval,
     continueHint: 'get_image_task_status',
+    onProgress,
     fetchStatus: async (signal) => {
       const { task_id, status, ...payload } = await getImageTaskStatus(client, createResult.task_id, signal);
       return { status, payload };

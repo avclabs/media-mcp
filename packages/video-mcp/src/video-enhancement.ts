@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   checkLocalFile,
   classifyStatus,
+  createProgressReporter,
   formatRequestError,
   parseTosSignature,
   POLL_REQUEST_TIMEOUT_MS,
@@ -12,6 +13,7 @@ import {
   registerTool,
   unwrapEnvelope,
   uploadToTos,
+  type ProgressReporter,
 } from '@avclabs.ai/media-mcp-core';
 
 const PollIntervalSchema = z.number().min(0.5).max(30).default(5).describe('Polling interval in seconds (0.5-30), default 5');
@@ -98,9 +100,20 @@ Parameters:
 - poll_interval: polling interval in seconds
 - timeout: synchronous wait timeout in seconds, default 45
 
-Best for short videos (estimated processing time < 1 minute). If the task is not completed within the timeout, the tool returns early with a task_id. Use get_task_status to continue polling.`,
+Best for short videos (estimated processing time < 1 minute). If the task is not completed within the timeout, the tool returns early with a task_id. Use get_task_status to continue polling.
+
+When the client supplies a progressToken, the wait reports 0-100 progress through MCP progress notifications.`,
     EnhanceVideoSyncSchema.shape,
-    async (args) => enhanceVideoSync(client, args.video_source, args.type, args.resolution, args.poll_interval, args.timeout)
+    async (args, extra) =>
+      enhanceVideoSync(
+        client,
+        args.video_source,
+        args.type,
+        args.resolution,
+        args.poll_interval,
+        args.timeout,
+        createProgressReporter(extra)
+      )
   );
 }
 
@@ -189,7 +202,8 @@ async function enhanceVideoSync(
   sourceType: 'url' | 'local',
   resolution: string,
   pollInterval: number,
-  timeout: number
+  timeout: number,
+  onProgress?: ProgressReporter
 ): Promise<any> {
   const createResult = await createTask(client, videoSource, sourceType, resolution);
   if (!createResult.success) {
@@ -201,6 +215,7 @@ async function enhanceVideoSync(
     timeoutSeconds: timeout,
     pollIntervalSeconds: pollInterval,
     continueHint: 'get_task_status',
+    onProgress,
     fetchStatus: async (signal) => {
       const { task_id, status, ...payload } = await getTaskStatus(client, createResult.task_id, signal);
       return { status, payload };

@@ -353,3 +353,90 @@ test('pollUntilTerminal cancels a real in-flight HTTP query at the budget edge a
     server.close();
   }
 });
+
+// --- Progress reporting ---
+
+test('pollUntilTerminal forwards only increasing progress and closes the sequence at 100', async () => {
+  const clock = fakeClock();
+  const ticks = [
+    { status: 'processing', payload: { progress: 0 } },
+    { status: 'processing', payload: { progress: 40 } },
+    // Same value again: HTTP jitter must not reach the client.
+    { status: 'processing', payload: { progress: 40 } },
+    // Regression: never emitted, progress is monotonic by contract.
+    { status: 'processing', payload: { progress: 25 } },
+    // Terminal success without a backend 100: the poll closes the bar itself.
+    { status: 'completed', payload: { progress: 90, video_url: 'https://x/v.mp4' } },
+  ];
+  const reported = [];
+  const result = await pollUntilTerminal({
+    taskId: 'prog-1',
+    timeoutSeconds: 50,
+    pollIntervalSeconds: 2,
+    continueHint: 'get_task_status',
+    now: clock.now,
+    delay: clock.delay,
+    onProgress: (progress, message) => {
+      reported.push({ progress, message });
+    },
+    fetchStatus: async () => ticks.shift() ?? { status: 'processing', payload: {} },
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.video_url, 'https://x/v.mp4');
+  assert.deepEqual(reported.map((r) => r.progress), [0, 40, 100]);
+  assert.match(reported[0].message, /processing/);
+  assert.match(reported[2].message, /completed/);
+});
+
+test('pollUntilTerminal keeps polling when onProgress throws', async () => {
+  const clock = fakeClock();
+  const ticks = [
+    { status: 'processing', payload: { progress: 10 } },
+    { status: 'completed', payload: { progress: 100, video_url: 'https://x/v.mp4' } },
+  ];
+  const originalError = console.error;
+  console.error = () => {};
+  let reported = 0;
+  try {
+    const result = await pollUntilTerminal({
+      taskId: 'prog-2',
+      timeoutSeconds: 50,
+      pollIntervalSeconds: 2,
+      continueHint: 'get_task_status',
+      now: clock.now,
+      delay: clock.delay,
+      onProgress: () => {
+        reported++;
+        throw new Error('notification channel closed');
+      },
+      fetchStatus: async () => ticks.shift() ?? { status: 'processing', payload: {} },
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.video_url, 'https://x/v.mp4');
+    assert.equal(reported, 2, 'both the 10% tick and the terminal 100% were attempted');
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test('pollUntilTerminal does not call onProgress when the payload has no numeric progress', async () => {
+  const clock = fakeClock();
+  let reported = 0;
+  const result = await pollUntilTerminal({
+    taskId: 'prog-3',
+    timeoutSeconds: 50,
+    pollIntervalSeconds: 2,
+    continueHint: 'get_task_status',
+    now: clock.now,
+    delay: clock.delay,
+    onProgress: () => {
+      reported++;
+    },
+    fetchStatus: async () => ({ status: 'completed', payload: {} }),
+  });
+  // A terminal success still closes the bar at 100 even without backend progress.
+  assert.equal(result.success, true);
+  assert.equal(reported, 1);
+});
+

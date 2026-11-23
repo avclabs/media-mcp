@@ -266,6 +266,8 @@ Synchronously enhance video (blocks until completion).
 | `poll_interval` | number | No | `5` | Poll interval (seconds, 0.5-30) |
 | `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
 
+**Progress:** when the client sends a `progressToken` with the request, the wait also emits `notifications/progress` with a monotonic 0-100 `progress` (`total: 100`) and a short status message. A call without a token sends no notifications and returns exactly what it did before.
+
 **Truncated return example (not completed within the default 45-second budget):**
 ```json
 {
@@ -287,7 +289,7 @@ Three image processing tools are provided, each targeting a specific use case:
 | `colorize_image_sync` | Black-and-white photo colorization | Restoring old B&W photos with realistic colors |
 | `denoise_image_sync` | Image noise removal | Noisy/grainy photos taken in low light |
 
-All three tools share the same parameters and behavior pattern. They are **synchronous** — the tool blocks until the image is processed or the timeout is reached.
+All three tools share the same parameters and behavior pattern. They are **synchronous** — the tool blocks until the image is processed or the timeout is reached. When the request carries a `progressToken`, all three report 0-100 progress through `notifications/progress`.
 
 **Supported image formats**: PNG, JPG, JPEG, BMP, WebP, etc.
 

@@ -126,6 +126,8 @@ Synchronously enhance an image to improve quality and optimize faces.
 | `poll_interval` | number | No | `5` | Poll interval in seconds (0.5-30) |
 | `timeout` | number | No | `45` | Sync wait timeout in seconds (1-45), returns early when exceeded |
 
+**Progress:** when the client sends a `progressToken` with the request, the wait also emits `notifications/progress` with a monotonic 0-100 `progress` (`total: 100`) and a short status message. A call without a token sends no notifications and returns exactly what it did before. `colorize_image_sync` and `denoise_image_sync` behave the same way.
+
 **Normal completion return:**
 ```json
 {
