@@ -1,6 +1,6 @@
 {
   "name": "@avclabs.ai/media-mcp-core",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Shared toolkit for the AVCLabs media MCP servers: tool registration, task polling, TOS upload, and host config resolution",
   "type": "module",
   "main": "dist/index.js",
@@ -37,7 +37,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "axios": "^1.7.0",
     "form-data": "^4.0.5",
-    "zod": "^3.23.0"
+    "zod": "^4.6.7"
   },
   "engines": {
     "node": ">=18.0.0"

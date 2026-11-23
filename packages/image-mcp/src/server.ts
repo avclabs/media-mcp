@@ -10,7 +10,7 @@ import { resolveImageConfig } from './config.js';
 import { setupImageEnhancementTools } from './image-enhancement.js';
 
 // Kept in sync with package.json; scripts/check-release.mjs fails the build on drift.
-const SERVER_VERSION = '0.1.1';
+const SERVER_VERSION = '0.2.0';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
