@@ -17,7 +17,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install mcp-publisher
         run: |
@@ -33,11 +33,43 @@ jobs:
       - name: Validate server.json
         run: ./mcp-publisher validate
 
+      # Registry versions are immutable, so a re-run for an already published
+      # version is expected and must not fail the job.
+      - name: Check whether this version is already published
+        id: check
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import pathlib
+          import urllib.request
+
+          expected = json.loads(pathlib.Path("server.json").read_text())["version"]
+          url = (
+              "https://registry.modelcontextprotocol.io/v0.1/servers"
+              "?search=io.github.avclabs/media-mcp"
+          )
+          with urllib.request.urlopen(url, timeout=20) as response:
+              payload = json.load(response)
+          versions = [
+              entry.get("server", {}).get("version")
+              for entry in payload.get("servers", [])
+          ]
+          print(f"version={expected}")
+          print(f"exists={'true' if expected in versions else 'false'}")
+          PY
+
       - name: Authenticate with GitHub OIDC
+        if: steps.check.outputs.exists != 'true'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish
+        if: steps.check.outputs.exists != 'true'
         run: ./mcp-publisher publish
+
+      - name: Note the existing version
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          echo "::notice::media-mcp@${{ steps.check.outputs.version }} is already in the registry; nothing to publish"
 
       - name: Verify the listing reports this version
         run: |
